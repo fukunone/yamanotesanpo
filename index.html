@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="山手線さんぽ">
+<meta name="theme-color" content="#141a2e">
+<title>山手線一周さんぽ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=M+PLUS+Rounded+1c:wght@500;700;800&display=swap">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="app">
+  <div id="stage">
+    <canvas id="game" aria-label="ゲーム画面"></canvas>
+
+    <div id="hud" hidden>
+      <div class="hud-top">
+        <button id="btnPause" class="hud-btn" aria-label="一時停止">II</button>
+        <div class="hud-mid">
+          <div id="hpBox" class="hp"><div class="hp-head"><span class="hp-label">たいりょく</span><span class="hp-brisk">早歩き中</span></div><div class="hp-bar"><i id="hpFill"></i><b class="hp-mark"></b></div></div>
+          <div class="next"><span class="next-tag">つぎは</span><b id="nextName">有楽町</b><span id="nextDist"></span></div>
+        </div>
+        <div class="hud-right">
+          <canvas id="loopMap" width="120" height="120" aria-label="一周のどこにいるか"></canvas>
+          <div class="hud-meta"><span id="stCount">0/30駅</span><span id="hudTime">0:00.0</span></div>
+        </div>
+      </div>
+    </div>
+    <div id="banner" aria-live="polite"></div>
+    <div id="flash"></div>
+
+    <section id="scrTitle" class="screen" hidden>
+      <div class="sign title-sign">
+        <div class="sign-kana">やまのてせん いっしゅう さんぽ</div>
+        <div class="sign-name">山手線一周さんぽ</div>
+        <div class="sign-band"><span>← 神田</span><span class="sign-roma">Yamanote Sanpo</span><span>有楽町 →</span></div>
+      </div>
+      <div class="panel">
+        <h2>自己ベスト</h2>
+        <div id="bestBox"></div>
+      </div>
+      <div class="panel">
+        <h2>あそびかた</h2>
+        <ol class="howto">
+          <li>画面の左右をタップ（またはスワイプ）でレーンを移動</li>
+          <li>体力は歩くだけで減る。食べ物と水で回復。体力70以上なら早歩きでタイムが縮む</li>
+          <li>東京から外回りで30駅、一周したらゴール</li>
+        </ol>
+        <div class="legend">
+          <div><img data-spr="onigiri" alt=""><span class="good">おにぎり +20</span></div>
+          <div><img data-spr="water" alt=""><span class="good">水 +12</span></div>
+          <div><img data-spr="snack" alt=""><span class="good">おやつ +7</span></div>
+          <div><img data-spr="garbage" alt=""><span class="bad">ごみ −10</span></div>
+          <div><img data-spr="rotten" alt=""><span class="bad">腐った食べ物 −18</span></div>
+          <div><img data-spr="thug" alt=""><span class="bad">不良 −25</span></div>
+        </div>
+      </div>
+      <button id="btnStart" class="btn-main">歩きはじめる</button>
+      <div class="btn-row"><button class="btn-sub btn-sound" aria-pressed="true">音あり</button></div>
+    </section>
+
+    <section id="scrPause" class="screen" hidden>
+      <div class="pause-title">ひと休み中</div>
+      <button id="btnResume" class="btn-main">歩きつづける</button>
+      <div class="btn-row"><button id="btnQuit" class="btn-sub">タイトルへ</button><button class="btn-sub btn-sound" aria-pressed="true">音あり</button></div>
+    </section>
+
+    <section id="scrResult" class="screen" hidden>
+      <div class="panel result-card" id="resBody"></div>
+      <button id="btnRetry" class="btn-main">もう一度歩く</button>
+      <div class="btn-row"><button id="btnTitle" class="btn-sub">タイトルへ</button></div>
+    </section>
+  </div>
+</div>
+<script>
+window.addEventListener('error', function (e) {
+  var d = document.getElementById('bootErr');
+  if (!d) { d = document.createElement('div'); d.id = 'bootErr'; (document.getElementById('stage') || document.body).appendChild(d); }
+  d.textContent = 'エラーが起きました。この画面を撮って送ってください:\n' + (e.message || e) + ' (' + (e.lineno || '') + ')';
+});
+</script>
+<script src="js/data.js"></script>
+<script src="js/records.js"></script>
+<script src="js/sound.js"></script>
+<script src="js/game.js"></script>
+</body>
+</html>

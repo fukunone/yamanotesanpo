@@ -1,0 +1,1295 @@
+
+<title>山手線一周さんぽ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=M+PLUS+Rounded+1c:wght@500;700;800&display=swap">
+<style>
+/* 山手線一周さんぽ — 画面デザイン
+   レイアウト：縦長の1画面。ゲーム画面の上に、駅名標（駅のホームの看板）風のパネルを重ねる */
+:root {
+  --line: #8cc63f;      /* 山手線の黄緑 */
+  --line-deep: #5f9a1f;
+  --ink: #1d1f22;
+  --paper: #fbfbf7;
+  --night: #141a2e;
+  --pack: #e8743b;      /* 主人公のリュック色 */
+  --danger: #ef4b4b;
+  --muted: #5d6470;
+  --font-disp: "Dela Gothic One", "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
+  --font-body: "M PLUS Rounded 1c", "Hiragino Maru Gothic ProN", "Hiragino Sans", sans-serif;
+  color-scheme: light;
+}
+[hidden] { display: none !important; }
+html, body { height: 100%; margin: 0; }
+body {
+  background: var(--night); color: var(--ink); font-family: var(--font-body);
+  overflow: hidden; overscroll-behavior: none;
+  -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent;
+}
+#app { position: fixed; top: 0; left: 0; right: 0; bottom: 0; width: 100%; height: 100%; display: flex; justify-content: center; background: var(--night); }
+#stage { position: relative; height: 100%; width: 100%; max-width: 100%; min-width: 0; overflow: hidden; touch-action: none; background: #87c6ea; }
+#game { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+
+button { font-family: var(--font-body); cursor: pointer; touch-action: manipulation; }
+button:focus-visible { outline: 3px solid var(--pack); outline-offset: 2px; }
+
+/* ---- プレイ中の表示 ---- */
+#hud {
+  position: absolute; left: 0; right: 0; top: 0; pointer-events: none;
+  padding: calc(env(safe-area-inset-top, 0px) + 10px) 12px 0;
+}
+.hud-top { display: flex; gap: 10px; align-items: flex-start; }
+.hud-btn {
+  pointer-events: auto; flex: none; width: 44px; height: 44px; border-radius: 12px; border: 0;
+  background: rgba(20, 26, 46, .72); color: #fff; font-family: var(--font-disp); font-size: 15px; letter-spacing: 2px;
+}
+.hud-mid { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.hp { background: rgba(20, 26, 46, .72); border-radius: 12px; padding: 6px 10px 8px; color: #fff; }
+.hp-label { font-size: 11px; letter-spacing: .12em; font-weight: 700; opacity: .9; }
+.hp-bar { margin-top: 3px; height: 12px; border-radius: 6px; background: rgba(255, 255, 255, .18); overflow: hidden; position: relative; }
+.hp-head { display: flex; justify-content: space-between; align-items: center; }
+.hp-brisk { font-size: 11px; font-weight: 800; color: #14210a; background: var(--line); border-radius: 999px; padding: 0 8px; opacity: 0; transition: opacity .2s; }
+.hp.brisk .hp-brisk { opacity: 1; }
+.hp-mark { position: absolute; left: 70%; top: 0; bottom: 0; width: 2px; background: rgba(255, 255, 255, .75); }
+.hp-bar i { display: block; height: 100%; width: 100%; transform-origin: left center; background: #7ccf4a; border-radius: 6px; transition: transform .15s linear; }
+.hp.low { animation: pulse .9s infinite; }
+@keyframes pulse { 50% { background: rgba(160, 30, 40, .8); } }
+.next {
+  display: flex; align-items: baseline; gap: 6px; background: var(--paper); border-radius: 10px; padding: 5px 10px;
+  border-bottom: 4px solid var(--line); box-shadow: 0 2px 0 rgba(0, 0, 0, .15); white-space: nowrap; overflow: hidden;
+}
+.next-tag { font-size: 11px; color: var(--muted); font-weight: 700; }
+.next b { font-family: var(--font-disp); font-weight: 400; font-size: 17px; overflow: hidden; text-overflow: ellipsis; }
+#nextDist { margin-left: auto; font-size: 12px; font-weight: 700; color: var(--line-deep); font-variant-numeric: tabular-nums; }
+.hud-right { flex: none; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+#loopMap { width: 60px; height: 60px; background: rgba(20, 26, 46, .72); border-radius: 50%; }
+.hud-meta { display: flex; flex-direction: column; align-items: center; color: #fff; font-weight: 800; font-size: 12px; text-shadow: 0 1px 2px rgba(0, 0, 0, .7); font-variant-numeric: tabular-nums; }
+
+/* ---- 駅名の看板（駅を通過したとき） ---- */
+#banner { position: absolute; left: 50%; top: 24%; transform: translate(-50%, 0); width: min(86%, 360px); pointer-events: none; opacity: 0; }
+#banner.show { animation: banner 2.6s ease-out forwards; }
+@keyframes banner {
+  0% { opacity: 0; transform: translate(-50%, -14px) scale(.92); }
+  10% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+  78% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -8px) scale(.98); }
+}
+.sign { background: var(--paper); border-radius: 8px; box-shadow: 0 6px 0 rgba(0, 0, 0, .22); overflow: hidden; text-align: center; border: 2px solid #555; }
+.sign-kana { font-size: 13px; font-weight: 700; color: var(--muted); padding-top: 8px; letter-spacing: .2em; }
+.sign-name { font-family: var(--font-disp); font-size: clamp(30px, 11vw, 46px); line-height: 1.15; padding: 0 10px 6px; text-wrap: balance; }
+.sign-band { display: flex; justify-content: space-between; align-items: center; gap: 6px; background: var(--line); color: #fff; font-size: 12px; font-weight: 800; padding: 5px 8px; }
+.sign-roma { font-size: 13px; letter-spacing: .06em; }
+.sign-sub { margin-top: 10px; text-align: center; color: #fff; font-weight: 800; font-size: 14px; text-shadow: 0 1px 3px rgba(0, 0, 0, .8), 0 0 10px rgba(0, 0, 0, .4); }
+
+#flash { position: absolute; inset: 0; pointer-events: none; opacity: 0; box-shadow: inset 0 0 80px 30px rgba(230, 40, 40, .7); }
+#flash.on { animation: flash .45s ease-out; }
+@keyframes flash { 0% { opacity: 1; } 100% { opacity: 0; } }
+
+/* ---- タイトル・一時停止・結果 ---- */
+.screen {
+  position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; gap: 14px;
+  padding: calc(env(safe-area-inset-top, 0px) + 16px) 18px calc(env(safe-area-inset-bottom, 0px) + 18px);
+  background: linear-gradient(180deg, rgba(20, 26, 46, .15) 0%, rgba(20, 26, 46, .55) 55%, rgba(20, 26, 46, .85) 100%);
+  overflow-y: auto;
+}
+.title-sign { transform: rotate(-1.5deg); }
+.title-sign .sign-name { font-size: clamp(30px, 10.5vw, 44px); padding-top: 2px; }
+.title-sign .sign-band { font-size: 11px; }
+.panel { background: rgba(251, 251, 247, .96); border-radius: 14px; padding: 12px 14px; box-shadow: 0 4px 0 rgba(0, 0, 0, .2); }
+.panel h2 { margin: 0 0 6px; font-family: var(--font-disp); font-weight: 400; font-size: 14px; color: var(--line-deep); letter-spacing: .08em; }
+.best-row { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; padding: 3px 0; }
+.best-row span { color: var(--muted); font-weight: 700; flex: none; }
+.best-row b { text-align: right; font-variant-numeric: tabular-nums; min-width: 0; }
+.howto { margin: 0; padding-left: 1.3em; font-size: 13px; line-height: 1.6; }
+.legend { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px 6px; margin-top: 8px; font-size: 11px; font-weight: 700; text-align: center; }
+.legend div { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.legend img { height: 30px; width: auto; }
+.legend .good { color: #3d8a1e; } .legend .bad { color: #c63434; }
+.btn-main {
+  border: 0; border-radius: 16px; padding: 16px; font-family: var(--font-disp); font-size: 22px; color: #fff;
+  background: var(--line); box-shadow: 0 5px 0 var(--line-deep); letter-spacing: .06em;
+}
+.btn-main:active { transform: translateY(3px); box-shadow: 0 2px 0 var(--line-deep); }
+.btn-row { display: flex; gap: 10px; }
+.btn-sub { flex: 1; border: 0; border-radius: 12px; padding: 12px; font-size: 15px; font-weight: 800; background: rgba(251, 251, 247, .95); color: var(--ink); box-shadow: 0 3px 0 rgba(0, 0, 0, .25); }
+.btn-sound { flex: none; }
+.pause-title { font-family: var(--font-disp); color: #fff; font-size: 30px; text-align: center; }
+.result-card { text-align: center; }
+.res-eyebrow { font-weight: 800; color: var(--muted); font-size: 14px; }
+.res-big { font-family: var(--font-disp); font-size: clamp(36px, 13vw, 54px); line-height: 1.2; margin: 4px 0; font-variant-numeric: tabular-nums; }
+.res-big small { font-size: .4em; margin-left: 4px; }
+.res-stats { display: flex; justify-content: center; flex-wrap: wrap; gap: 6px 14px; font-weight: 800; font-size: 14px; margin: 6px 0; font-variant-numeric: tabular-nums; }
+.res-new { display: inline-block; background: var(--pack); color: #fff; font-weight: 800; border-radius: 999px; padding: 4px 14px; margin-top: 4px; animation: pop .6s ease-out; }
+@keyframes pop { 0% { transform: scale(.4); } 70% { transform: scale(1.12); } 100% { transform: scale(1); } }
+.res-sub { color: var(--muted); font-size: 13px; font-weight: 700; margin-top: 4px; }
+.res-note { margin-top: 10px; font-size: 11px; color: var(--muted); }
+@media (prefers-reduced-motion: reduce) { #banner.show { animation-duration: 2.6s; } .res-new { animation: none; } }
+
+#bootErr { position: absolute; left: 12px; right: 12px; bottom: 24px; z-index: 50; background: #fff; color: #b00020; font: 12px/1.5 monospace; padding: 10px; border-radius: 8px; white-space: pre-wrap; word-break: break-all; }
+
+</style>
+
+
+<div id="app">
+  <div id="stage">
+    <canvas id="game" aria-label="ゲーム画面"></canvas>
+
+    <div id="hud" hidden>
+      <div class="hud-top">
+        <button id="btnPause" class="hud-btn" aria-label="一時停止">II</button>
+        <div class="hud-mid">
+          <div id="hpBox" class="hp"><div class="hp-head"><span class="hp-label">たいりょく</span><span class="hp-brisk">早歩き中</span></div><div class="hp-bar"><i id="hpFill"></i><b class="hp-mark"></b></div></div>
+          <div class="next"><span class="next-tag">つぎは</span><b id="nextName">有楽町</b><span id="nextDist"></span></div>
+        </div>
+        <div class="hud-right">
+          <canvas id="loopMap" width="120" height="120" aria-label="一周のどこにいるか"></canvas>
+          <div class="hud-meta"><span id="stCount">0/30駅</span><span id="hudTime">0:00.0</span></div>
+        </div>
+      </div>
+    </div>
+    <div id="banner" aria-live="polite"></div>
+    <div id="flash"></div>
+
+    <section id="scrTitle" class="screen" hidden>
+      <div class="sign title-sign">
+        <div class="sign-kana">やまのてせん いっしゅう さんぽ</div>
+        <div class="sign-name">山手線一周さんぽ</div>
+        <div class="sign-band"><span>← 神田</span><span class="sign-roma">Yamanote Sanpo</span><span>有楽町 →</span></div>
+      </div>
+      <div class="panel">
+        <h2>自己ベスト</h2>
+        <div id="bestBox"></div>
+      </div>
+      <div class="panel">
+        <h2>あそびかた</h2>
+        <ol class="howto">
+          <li>画面の左右をタップ（またはスワイプ）でレーンを移動</li>
+          <li>体力は歩くだけで減る。食べ物と水で回復。体力70以上なら早歩きでタイムが縮む</li>
+          <li>東京から外回りで30駅、一周したらゴール</li>
+        </ol>
+        <div class="legend">
+          <div><img data-spr="onigiri" alt=""><span class="good">おにぎり +20</span></div>
+          <div><img data-spr="water" alt=""><span class="good">水 +12</span></div>
+          <div><img data-spr="snack" alt=""><span class="good">おやつ +7</span></div>
+          <div><img data-spr="garbage" alt=""><span class="bad">ごみ −10</span></div>
+          <div><img data-spr="rotten" alt=""><span class="bad">腐った食べ物 −18</span></div>
+          <div><img data-spr="thug" alt=""><span class="bad">不良 −25</span></div>
+        </div>
+      </div>
+      <button id="btnStart" class="btn-main">歩きはじめる</button>
+      <div class="btn-row"><button class="btn-sub btn-sound" aria-pressed="true">音あり</button></div>
+    </section>
+
+    <section id="scrPause" class="screen" hidden>
+      <div class="pause-title">ひと休み中</div>
+      <button id="btnResume" class="btn-main">歩きつづける</button>
+      <div class="btn-row"><button id="btnQuit" class="btn-sub">タイトルへ</button><button class="btn-sub btn-sound" aria-pressed="true">音あり</button></div>
+    </section>
+
+    <section id="scrResult" class="screen" hidden>
+      <div class="panel result-card" id="resBody"></div>
+      <button id="btnRetry" class="btn-main">もう一度歩く</button>
+      <div class="btn-row"><button id="btnTitle" class="btn-sub">タイトルへ</button></div>
+    </section>
+  </div>
+</div>
+<script>
+window.addEventListener('error', function (e) {
+  var d = document.getElementById('bootErr');
+  if (!d) { d = document.createElement('div'); d.id = 'bootErr'; (document.getElementById('stage') || document.body).appendChild(d); }
+  d.textContent = 'エラーが起きました。この画面を撮って送ってください:\n' + (e.message || e) + ' (' + (e.lineno || '') + ')';
+});
+</script>
+<script>
+/* 山手線一周さんぽ — 駅と街のデータ
+ * km は「次の駅までの距離（おおよそ）」。外回り（東京→有楽町→新橋…）の順。
+ * theme はその区間の街の雰囲気。 */
+const STATIONS = [
+  { name: '東京',       kana: 'とうきょう',       roma: 'Tokyo',             km: 0.8, theme: 'marunouchi' },
+  { name: '有楽町',     kana: 'ゆうらくちょう',   roma: 'Yurakucho',         km: 1.1, theme: 'marunouchi' },
+  { name: '新橋',       kana: 'しんばし',         roma: 'Shimbashi',         km: 1.2, theme: 'yokocho' },
+  { name: '浜松町',     kana: 'はままつちょう',   roma: 'Hamamatsucho',      km: 1.5, theme: 'bay' },
+  { name: '田町',       kana: 'たまち',           roma: 'Tamachi',           km: 1.3, theme: 'bay' },
+  { name: '高輪ゲートウェイ', kana: 'たかなわげーとうぇい', roma: 'Takanawa Gateway', km: 0.9, theme: 'glass' },
+  { name: '品川',       kana: 'しながわ',         roma: 'Shinagawa',         km: 2.0, theme: 'glass' },
+  { name: '大崎',       kana: 'おおさき',         roma: 'Osaki',             km: 0.9, theme: 'glass' },
+  { name: '五反田',     kana: 'ごたんだ',         roma: 'Gotanda',           km: 1.2, theme: 'residential' },
+  { name: '目黒',       kana: 'めぐろ',           roma: 'Meguro',            km: 1.5, theme: 'residential' },
+  { name: '恵比寿',     kana: 'えびす',           roma: 'Ebisu',             km: 1.6, theme: 'stylish' },
+  { name: '渋谷',       kana: 'しぶや',           roma: 'Shibuya',           km: 1.2, theme: 'shibuya' },
+  { name: '原宿',       kana: 'はらじゅく',       roma: 'Harajuku',          km: 1.5, theme: 'harajuku' },
+  { name: '代々木',     kana: 'よよぎ',           roma: 'Yoyogi',            km: 0.7, theme: 'forest' },
+  { name: '新宿',       kana: 'しんじゅく',       roma: 'Shinjuku',          km: 1.3, theme: 'skyscraper' },
+  { name: '新大久保',   kana: 'しんおおくぼ',     roma: 'Shin-Okubo',        km: 1.4, theme: 'multicultural' },
+  { name: '高田馬場',   kana: 'たかだのばば',     roma: 'Takadanobaba',      km: 0.9, theme: 'student' },
+  { name: '目白',       kana: 'めじろ',           roma: 'Mejiro',            km: 1.2, theme: 'quiet' },
+  { name: '池袋',       kana: 'いけぶくろ',       roma: 'Ikebukuro',         km: 1.8, theme: 'ikebukuro' },
+  { name: '大塚',       kana: 'おおつか',         roma: 'Otsuka',            km: 1.1, theme: 'retro' },
+  { name: '巣鴨',       kana: 'すがも',           roma: 'Sugamo',            km: 0.7, theme: 'retro' },
+  { name: '駒込',       kana: 'こまごめ',         roma: 'Komagome',          km: 1.6, theme: 'garden' },
+  { name: '田端',       kana: 'たばた',           roma: 'Tabata',            km: 0.8, theme: 'residential' },
+  { name: '西日暮里',   kana: 'にしにっぽり',     roma: 'Nishi-Nippori',     km: 0.5, theme: 'oldtown' },
+  { name: '日暮里',     kana: 'にっぽり',         roma: 'Nippori',           km: 1.1, theme: 'oldtown' },
+  { name: '鶯谷',       kana: 'うぐいすだに',     roma: 'Uguisudani',        km: 1.1, theme: 'park' },
+  { name: '上野',       kana: 'うえの',           roma: 'Ueno',              km: 0.6, theme: 'market' },
+  { name: '御徒町',     kana: 'おかちまち',       roma: 'Okachimachi',       km: 1.0, theme: 'market' },
+  { name: '秋葉原',     kana: 'あきはばら',       roma: 'Akihabara',         km: 0.7, theme: 'electric' },
+  { name: '神田',       kana: 'かんだ',           roma: 'Kanda',             km: 1.3, theme: 'yokocho' },
+];
+
+/* 街の雰囲気。kinds = 建物の種類、deco = 飾り、words = 看板の文字（実在の店名・ロゴは使わない） */
+const THEMES = {
+  marunouchi: { label: 'レンガ駅舎とオフィス街', ground: '#a9a396', walk: '#cfc4b0', road: '#5a5d64',
+    kinds: ['brick', 'tower', 'tower'], hMin: 9, hMax: 26, colors: ['#9a5b48', '#b7ab98', '#8f99a3', '#c8bfae', '#7d8a96'],
+    win: '#a9c0d2', trees: 0.18, tree: '#4f7d46', deco: 'none', gap: [0.3, 1.0] },
+  yokocho: { label: '赤ちょうちんの飲み屋街', ground: '#776655', walk: '#a39178', road: '#4b4846',
+    kinds: ['low', 'low', 'mid'], hMin: 3.2, hMax: 8, colors: ['#6e4c3a', '#8c6e55', '#5e524a', '#9b8770', '#7a5a44'],
+    win: '#c9a877', trees: 0.03, tree: '#4f6d3e', deco: 'lantern', gap: [0.1, 0.4],
+    words: ['焼鳥', 'おでん', '立呑', '定食', '酒場'] },
+  bay: { label: '海風の吹く湾岸エリア', ground: '#9aa7a8', walk: '#c3ccc9', road: '#5b6268', water: true,
+    kinds: ['warehouse', 'glass', 'mid'], hMin: 4, hMax: 15, colors: ['#cad5dc', '#9fb2bf', '#e1e5e6', '#b9c4b6'],
+    win: '#9fc3dc', trees: 0.12, tree: '#5a8a5a', deco: 'none', gap: [0.6, 2.0] },
+  glass: { label: 'ガラス張りの新しい街', ground: '#a3acb2', walk: '#d7dde0', road: '#585e66',
+    kinds: ['glass', 'glass', 'tower'], hMin: 12, hMax: 32, colors: ['#8fb4cd', '#a8c6d8', '#6f98b6', '#cfdde7'],
+    win: '#bfe0f5', trees: 0.28, tree: '#4e8a52', deco: 'none', gap: [0.6, 1.6] },
+  residential: { label: '坂道と住宅の街', ground: '#9c9a84', walk: '#c8c2ac', road: '#5d5f60',
+    kinds: ['house', 'house', 'mid'], hMin: 3, hMax: 10, colors: ['#e7dcc7', '#d2c2a6', '#bfcac1', '#ebe5d9', '#c8b49c', '#d9cfd8'],
+    win: '#9db4c4', trees: 0.35, tree: '#4c7f43', deco: 'none', gap: [0.6, 1.6] },
+  stylish: { label: 'おしゃれなレンガ通り', ground: '#9b8a78', walk: '#cdb9a0', road: '#57514d',
+    kinds: ['brick', 'mid', 'low'], hMin: 4, hMax: 12, colors: ['#a1634a', '#c38a68', '#8b7b6b', '#d8c6ae'],
+    win: '#e8cf9a', trees: 0.3, tree: '#5b7f3e', deco: 'awning', gap: [0.2, 0.8] },
+  shibuya: { label: '大型ビジョンの若者の街', ground: '#7e7f86', walk: '#b8b8bd', road: '#4a4c52', crosswalk: true,
+    kinds: ['mid', 'tower', 'tower'], hMin: 9, hMax: 24, colors: ['#5b6171', '#7b808d', '#414755', '#9ba1ab', '#6a5f78'],
+    win: '#a7b8d0', trees: 0.04, tree: '#4b7a45', deco: 'screen', gap: [0.1, 0.5],
+    words: ['カラオケ', 'ゲーム', '古着', 'カフェ'] },
+  harajuku: { label: 'カラフルな原宿ストリート', ground: '#a69aa8', walk: '#e6d8e2', road: '#5b5560',
+    kinds: ['low', 'low', 'mid'], hMin: 3, hMax: 8, colors: ['#ffb3c8', '#ffe08b', '#b7e5ff', '#c8f1c6', '#e2c7ff', '#ffc9a3'],
+    win: '#ffffff', trees: 0.22, tree: '#4f8a4a', deco: 'pastel', gap: [0.1, 0.5],
+    words: ['クレープ', '古着', '雑貨', 'わたあめ', 'ドーナツ'] },
+  forest: { label: '大きな森の緑道', ground: '#58804a', walk: '#cbb98d', road: '#6b6a5c',
+    kinds: ['tree'], hMin: 3, hMax: 5, colors: ['#8a7a5a'], win: '#000000', trees: 1, tree: '#3f7a3a', deco: 'none', gap: [0.2, 1.2] },
+  skyscraper: { label: '空にそびえる高層ビル群', ground: '#8b9097', walk: '#c2c5ca', road: '#4d5057',
+    kinds: ['tower', 'glass', 'tower'], hMin: 24, hMax: 52, colors: ['#6f7f90', '#8999aa', '#55606f', '#a9b6c3', '#7d8794'],
+    win: '#b6cde0', trees: 0.08, tree: '#4b7a45', deco: 'none', gap: [0.8, 2.0] },
+  multicultural: { label: '多国籍グルメの通り', ground: '#857770', walk: '#c0b0a2', road: '#4f4a49',
+    kinds: ['low', 'mid', 'low'], hMin: 3, hMax: 9, colors: ['#e0623b', '#f1b236', '#3b8fd8', '#e84c80', '#48b27a', '#f3e9d8'],
+    win: '#f5d7a0', trees: 0.04, tree: '#4b7a45', deco: 'signs', gap: [0.1, 0.4],
+    words: ['焼肉', 'スパイス', '屋台', '雑貨', 'チーズ', '麺'] },
+  student: { label: '学生でにぎわう街', ground: '#8f8a7c', walk: '#c3bba7', road: '#55534f',
+    kinds: ['mid', 'low', 'mid'], hMin: 4, hMax: 13, colors: ['#c7b79b', '#9fa8a3', '#d9cbb6', '#8d8f99', '#b99b83'],
+    win: '#a9bccc', trees: 0.12, tree: '#4b7a45', deco: 'signs', gap: [0.2, 0.7],
+    words: ['ラーメン', '古本', '定食', '書店', 'カフェ'] },
+  quiet: { label: '並木の静かなお屋敷街', ground: '#7f9370', walk: '#cfc7ad', road: '#5f625d',
+    kinds: ['house', 'house', 'mid'], hMin: 3, hMax: 7, colors: ['#efe7d8', '#d9cdb8', '#c3cfc6', '#e3dacb'],
+    win: '#9db4c4', trees: 0.55, tree: '#3f7a40', deco: 'none', gap: [1.0, 2.5] },
+  ikebukuro: { label: 'ビルと看板があふれる繁華街', ground: '#7e7d84', walk: '#b6b4b8', road: '#46474d',
+    kinds: ['tower', 'mid', 'tower'], hMin: 10, hMax: 34, colors: ['#5d6474', '#7d8290', '#454a58', '#9a8f9f', '#6e7a87'],
+    win: '#b0c2d8', trees: 0.05, tree: '#4b7a45', deco: 'signs', gap: [0.1, 0.6],
+    words: ['カラオケ', 'ゲーム', 'アニメ', '水族館', 'ラーメン'] },
+  retro: { label: '昔ながらの商店街', ground: '#8f8170', walk: '#c7b598', road: '#5b544c',
+    kinds: ['low', 'low', 'low'], hMin: 3, hMax: 6, colors: ['#b98e6a', '#8f7a63', '#d3bf9f', '#a3876c', '#c7a27a'],
+    win: '#d8c49a', trees: 0.05, tree: '#4b7a45', deco: 'awning', gap: [0.05, 0.3],
+    words: ['和菓子', '漬物', '茶', '乾物', '豆腐'] },
+  garden: { label: '庭園とつつじの街', ground: '#6f8d5e', walk: '#d2c6a8', road: '#5e605a',
+    kinds: ['house', 'house'], hMin: 3, hMax: 6, colors: ['#ece2d0', '#d7c8af', '#c9d2c5'],
+    win: '#9db4c4', trees: 0.6, tree: '#3f7a3e', flowers: '#ef6fa7', deco: 'none', gap: [0.8, 2.0] },
+  oldtown: { label: 'お寺と坂の下町', ground: '#8b8473', walk: '#bfb397', road: '#5a554f',
+    kinds: ['temple', 'house', 'house'], hMin: 3, hMax: 5.5, colors: ['#8a6a4e', '#c9b89a', '#a58866', '#d8cdb8'],
+    win: '#cdb68a', trees: 0.35, tree: '#3f6e3a', deco: 'none', gap: [0.3, 1.2] },
+  park: { label: '森と美術館のある公園', ground: '#5f8650', walk: '#cdbf98', road: '#666557',
+    kinds: ['museum', 'tree', 'tree'], hMin: 5, hMax: 9, colors: ['#d8d1c4', '#bfb6a6', '#a99d8c'],
+    win: '#8fa6b4', trees: 0.7, tree: '#3b7238', deco: 'none', gap: [1.0, 2.5] },
+  market: { label: 'にぎやかな高架下の市場', ground: '#7d7266', walk: '#b7a58c', road: '#4f4a45',
+    kinds: ['low', 'low', 'mid'], hMin: 3, hMax: 7, colors: ['#e65b3e', '#f2c14a', '#5a9bd4', '#7fb85a', '#d9cdb8'],
+    win: '#f0d79c', trees: 0.02, tree: '#4b7a45', deco: 'awning', gap: [0.05, 0.3],
+    words: ['鮮魚', '果物', '乾物', '菓子', '安い'] },
+  electric: { label: 'ネオンきらめく電気街', ground: '#6d6f78', walk: '#a9abb3', road: '#3f4148',
+    kinds: ['mid', 'tower', 'mid'], hMin: 8, hMax: 22, colors: ['#3e4352', '#545a6b', '#2f3340', '#6b6f80'],
+    win: '#9fb3d6', trees: 0.02, tree: '#4b7a45', deco: 'neon', gap: [0.05, 0.4],
+    words: ['電気', 'パーツ', 'ゲーム', 'アニメ', '中古', '無線', 'PC'] },
+};
+
+</script>
+<script>
+/* 記録の保存。
+ * Storage … 端末への保存（今はブラウザの localStorage。アプリ化したら Capacitor Preferences に差し替える）
+ * Records … 自己ベストの管理
+ * Leaderboard … ランキング（アプリ版で Game Center やサーバーにつなぐ場所。今は何もしない） */
+const Storage = {
+  get(key, fallback) {
+    try { const v = localStorage.getItem(key); return v == null ? fallback : JSON.parse(v); }
+    catch (e) { return fallback; }
+  },
+  set(key, value) {
+    try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) { /* 保存できない環境でも遊べるようにする */ }
+  },
+};
+
+const Records = {
+  KEY: 'yamanote-sanpo.records.v1',
+  empty() { return { bestStations: 0, bestStationName: '', bestKm: 0, bestTimeMs: null, plays: 0, clears: 0 }; },
+  load() { return Object.assign(this.empty(), Storage.get(this.KEY, {})); },
+  /* run = { cleared, stations, stationName, km, timeMs, date } */
+  submit(run) {
+    const r = this.load();
+    const res = { newDistance: false, newTime: false, prev: Object.assign({}, r) };
+    r.plays += 1;
+    if (run.cleared) r.clears += 1;
+    if (run.km > r.bestKm + 1e-6) {
+      r.bestKm = run.km; r.bestStations = run.stations; r.bestStationName = run.stationName; res.newDistance = true;
+    }
+    if (run.cleared && (r.bestTimeMs == null || run.timeMs < r.bestTimeMs)) { r.bestTimeMs = run.timeMs; res.newTime = true; }
+    Storage.set(this.KEY, r);
+    res.records = r;
+    Leaderboard.submit(run);
+    return res;
+  },
+};
+
+const Leaderboard = {
+  enabled: false,
+  submit(run) { if (!this.enabled) return Promise.resolve(null); /* アプリ版でここに送信処理を書く */ return Promise.resolve(null); },
+  fetchTop() { return Promise.resolve([]); },
+};
+
+</script>
+<script>
+/* 効果音：すべてその場で合成するオリジナル音（音声ファイル不要） */
+const Sound = {
+  ctx: null, master: null, on: true,
+  unlock() {
+    try {
+      if (!this.ctx) {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return;
+        this.ctx = new AC();
+        this.master = this.ctx.createGain();
+        this.master.gain.value = 0.5;
+        this.master.connect(this.ctx.destination);
+        const b = this.ctx.createBuffer(1, 1, 22050), s = this.ctx.createBufferSource();
+        s.buffer = b; s.connect(this.master); s.start(0);
+      }
+      if (this.ctx.state === 'suspended') this.ctx.resume();
+    } catch (e) { /* 音が出せなくても遊べる */ }
+  },
+  setOn(v) { this.on = v; if (this.master) this.master.gain.value = v ? 0.5 : 0; },
+  ok() { return this.ctx && this.on && this.ctx.state === 'running'; },
+  tone(freq, dur, type = 'sine', vol = 0.3, delay = 0, slideTo = null) {
+    if (!this.ok()) return;
+    const t = this.ctx.currentTime + delay;
+    const o = this.ctx.createOscillator(), g = this.ctx.createGain();
+    o.type = type; o.frequency.setValueAtTime(freq, t);
+    if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t + dur);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(this.master); o.start(t); o.stop(t + dur + 0.02);
+  },
+  noise(dur, vol = 0.3, delay = 0, freq = 800) {
+    if (!this.ok()) return;
+    const t = this.ctx.currentTime + delay, n = Math.floor(this.ctx.sampleRate * dur);
+    const buf = this.ctx.createBuffer(1, n, this.ctx.sampleRate), d = buf.getChannelData(0);
+    for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / n);
+    const s = this.ctx.createBufferSource(), f = this.ctx.createBiquadFilter(), g = this.ctx.createGain();
+    f.type = 'lowpass'; f.frequency.value = freq; g.gain.value = vol;
+    s.buffer = buf; s.connect(f); f.connect(g); g.connect(this.master); s.start(t);
+  },
+  pickup(kind) {
+    const base = kind === 'onigiri' ? 660 : kind === 'water' ? 880 : 990;
+    this.tone(base, 0.12, 'triangle', 0.25);
+    this.tone(base * 1.5, 0.18, 'triangle', 0.22, 0.07);
+    if (kind === 'onigiri') this.tone(base * 2, 0.22, 'sine', 0.15, 0.14);
+  },
+  hit(kind) {
+    this.noise(0.18, 0.5, 0, kind === 'thug' ? 500 : 1200);
+    this.tone(kind === 'thug' ? 150 : 220, 0.25, 'square', 0.12, 0, 70);
+  },
+  station() { [784, 1047, 1319, 1175].forEach((f, i) => this.tone(f, 0.35, 'sine', 0.18, i * 0.13)); },
+  step() { this.noise(0.035, 0.05, 0, 600); },
+  beat() { this.tone(70, 0.12, 'sine', 0.35); this.tone(60, 0.14, 'sine', 0.3, 0.16); },
+  over() { [523, 440, 349, 262].forEach((f, i) => this.tone(f, 0.4, 'triangle', 0.22, i * 0.2)); },
+  clear() { [523, 659, 784, 1047, 784, 1047, 1319].forEach((f, i) => this.tone(f, 0.3, 'triangle', 0.22, i * 0.12)); },
+  click() { this.tone(1200, 0.05, 'sine', 0.12); },
+};
+
+</script>
+<script>
+/* 山手線一周さんぽ — ゲーム本体（描画・操作・進行） */
+(function () {
+  'use strict';
+
+  // ---------- 調整用の数値 ----------
+  const CFG = {
+    speed: 14,            // 歩く速さ（ゲーム内の単位/秒）
+    targetSec: 650,       // 普通の速さだけで一周したときの秒数（約10分50秒）
+    brisk: { hp: 70, mul: 1.15 }, // 体力70以上なら早歩き（1.15倍速）→ずっと保てば約9分25秒
+    hpMax: 100,
+    drain: [1.35, 2.4],    // 体力の減り方（序盤→終盤 / 秒）
+    rowGap: [24, 9],     // 障害物の間隔（序盤→終盤）
+    doubleChance: [0, 0.65], // 2つ並ぶ確率
+    itemChance: [0.75, 0.42],
+    late: { from: 18, item: 0.6, drain: 1.12, double: 0.1, gap: 0.92 }, // 池袋(18駅目)から先を厳しくする
+    items: { onigiri: { heal: 20, w: 20 }, water: { heal: 12, w: 35 }, snack: { heal: 7, w: 45 } },
+    obstacles: { garbage: { dmg: 10 }, rotten: { dmg: 18 }, thug: { dmg: 25 } },
+  };
+  const CAM_H = 4.2, CAM_BACK = 4, NEAR = 0.6, DRAW = 120;
+  const LANE = 1.7, ROAD = 2.7, WALK = 4.3;
+  const FONT = '"Dela Gothic One","Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP",sans-serif';
+  const FONT_B = '"M PLUS Rounded 1c","Hiragino Maru Gothic ProN","Hiragino Sans",sans-serif';
+
+  const N = STATIONS.length;
+  const TOTAL_KM = STATIONS.reduce((a, s) => a + s.km, 0);
+  const UPK = CFG.targetSec * CFG.speed / TOTAL_KM; // 1kmあたりの単位
+  const L = TOTAL_KM * UPK;
+  const segStart = []; { let a = 0; for (const s of STATIONS) { segStart.push(a); a += s.km * UPK; } }
+
+  // ---------- 小道具 ----------
+  const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+  const lerp = (a, b, t) => a + (b - a) * t;
+  const rand = (a, b) => a + Math.random() * (b - a);
+  const pick = (arr) => arr[(Math.random() * arr.length) | 0];
+  const hex = (h) => { const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
+  const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+  const mul = (a, f) => [a[0] * f, a[1] * f, a[2] * f];
+  const css = (c, al) => al == null ? `rgb(${c[0] | 0},${c[1] | 0},${c[2] | 0})` : `rgba(${c[0] | 0},${c[1] | 0},${c[2] | 0},${al})`;
+  function hash(a, b, c) {
+    let h = Math.imul(a | 0, 374761393) + Math.imul(b | 0, 668265263) + Math.imul(c | 0, 1274126177);
+    h = Math.imul(h ^ (h >>> 13), 1274126177); h ^= h >>> 16; return (h >>> 0) / 4294967296;
+  }
+  const wrapZ = (z) => ((z % L) + L) % L;
+  function stationIndexAt(z) { z = wrapZ(z); for (let k = N - 1; k >= 0; k--) if (segStart[k] <= z) return k; return 0; }
+  for (const k in THEMES) {
+    const t = THEMES[k];
+    t.groundC = hex(t.ground); t.walkC = hex(t.walk); t.roadC = hex(t.road); t.winC = hex(t.win);
+    t.treeC = hex(t.tree); t.colorsC = t.colors.map(hex); t.flowersC = t.flowers ? hex(t.flowers) : null;
+  }
+  const themeAt = (z) => THEMES[STATIONS[stationIndexAt(z)].theme];
+
+  // ---------- 画面 ----------
+  const stage = document.getElementById('stage');
+  const cv = document.getElementById('game');
+  const ctx = cv.getContext('2d');
+  let W = 0, H = 0, F = 0, HOR = 0, FEET = 0;
+  const app = document.getElementById('app');
+  function resize() {
+    // 画面の大きさは実際の要素の大きさから計算する（埋め込み表示でも縦長に収める）
+    const aw = app.clientWidth || window.innerWidth || document.documentElement.clientWidth;
+    const ah = app.clientHeight || window.innerHeight || document.documentElement.clientHeight;
+    stage.style.width = (ah > 300 ? Math.min(aw, ah * 0.62) : aw) + 'px';
+    const r = stage.getBoundingClientRect();
+    if (r.width < 10 || r.height < 10) return;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    W = r.width; H = r.height;
+    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    F = W * 0.8; FEET = H * 0.83; HOR = FEET - CAM_H * F / CAM_BACK;
+    buildSkyline();
+  }
+
+  // ---------- 時間帯（進むほど 朝→昼→夕方→夜） ----------
+  const SKY = [
+    [0.00, '#8fd0f2', '#fde6cf'], [0.30, '#4ea6e6', '#d2ecff'], [0.52, '#5f8fd0', '#f3dcb8'],
+    [0.66, '#55508e', '#f59a68'], [0.80, '#232a5a', '#b86b7d'], [1.00, '#0c1233', '#2f3a74'],
+  ].map(s => [s[0], hex(s[1]), hex(s[2])]);
+  function skyAt(p) {
+    for (let i = 0; i < SKY.length - 1; i++) {
+      const a = SKY[i], b = SKY[i + 1];
+      if (p <= b[0]) { const t = (p - a[0]) / (b[0] - a[0]); return [mix(a[1], b[1], t), mix(a[2], b[2], t)]; }
+    }
+    const l = SKY[SKY.length - 1]; return [l[1], l[2]];
+  }
+  let skyline = [];
+  function buildSkyline() {
+    skyline = []; let x = -0.2;
+    while (x < 1.2) { const w = rand(0.02, 0.07); skyline.push({ x, w, h: rand(0.01, 0.07) * (Math.random() < 0.15 ? 2 : 1), lit: Math.random() }); x += w + rand(0, 0.01); }
+  }
+
+  // ---------- 絵（アイテム・障害物） ----------
+  function mk(w, h, fn) { const c = document.createElement('canvas'); c.width = w; c.height = h; fn(c.getContext('2d'), w, h); return c; }
+  function rr(g, x, y, w, h, r) { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
+  const SPR = {
+    onigiri: mk(128, 128, (g) => {
+      g.lineJoin = 'round'; g.lineWidth = 7; g.strokeStyle = '#3b3530'; g.fillStyle = '#fffdf6';
+      g.beginPath(); g.moveTo(64, 12); g.quadraticCurveTo(76, 12, 112, 92); g.quadraticCurveTo(120, 116, 96, 118);
+      g.lineTo(32, 118); g.quadraticCurveTo(8, 116, 16, 92); g.quadraticCurveTo(52, 12, 64, 12); g.closePath(); g.fill(); g.stroke();
+      g.fillStyle = '#1f2e26'; rr(g, 40, 74, 48, 46, 5); g.fill();
+      g.fillStyle = 'rgba(255,255,255,.18)'; g.fillRect(46, 80, 4, 34);
+      g.fillStyle = '#d64545'; g.beginPath(); g.arc(64, 58, 7, 0, 7); g.fill();
+    }),
+    water: mk(80, 150, (g) => {
+      g.lineWidth = 5; g.strokeStyle = '#2a5f8a';
+      g.fillStyle = '#ffffff'; rr(g, 26, 4, 28, 18, 4); g.fill(); g.stroke();
+      g.fillStyle = 'rgba(150,210,245,.95)'; rr(g, 12, 22, 56, 122, 16); g.fill(); g.stroke();
+      g.fillStyle = '#2f8fd8'; g.fillRect(14, 64, 52, 40);
+      g.strokeStyle = '#ffffff'; g.lineWidth = 4; g.beginPath(); g.moveTo(18, 86); g.quadraticCurveTo(30, 74, 40, 86); g.quadraticCurveTo(52, 98, 62, 84); g.stroke();
+      g.fillStyle = 'rgba(255,255,255,.6)'; g.fillRect(20, 30, 6, 28);
+    }),
+    snack: mk(80, 160, (g) => {
+      g.fillStyle = '#b58a55'; g.fillRect(37, 8, 6, 150);
+      [['#f6a6bd', 30], ['#fbf7ee', 70], ['#9ccf72', 110]].forEach(([c, y]) => {
+        g.fillStyle = c; g.strokeStyle = '#5b4636'; g.lineWidth = 5; g.beginPath(); g.arc(40, y, 24, 0, 7); g.fill(); g.stroke();
+        g.fillStyle = 'rgba(255,255,255,.5)'; g.beginPath(); g.arc(32, y - 8, 6, 0, 7); g.fill();
+      });
+    }),
+    garbage: mk(128, 128, (g) => {
+      g.fillStyle = '#2a2d33'; g.strokeStyle = '#101114'; g.lineWidth = 5;
+      g.beginPath(); g.moveTo(64, 28); g.bezierCurveTo(120, 34, 126, 120, 96, 122); g.lineTo(32, 122); g.bezierCurveTo(2, 120, 8, 34, 64, 28); g.fill(); g.stroke();
+      g.beginPath(); g.moveTo(54, 30); g.lineTo(46, 8); g.lineTo(64, 20); g.lineTo(82, 8); g.lineTo(74, 30); g.fill(); g.stroke();
+      g.strokeStyle = 'rgba(255,255,255,.25)'; g.lineWidth = 4; g.beginPath(); g.moveTo(36, 60); g.quadraticCurveTo(30, 90, 40, 110); g.stroke();
+      g.fillStyle = '#c9c9c9'; g.save(); g.translate(98, 104); g.rotate(-0.5); g.fillRect(-10, -16, 20, 30); g.fillStyle = '#d84a3a'; g.fillRect(-10, -6, 20, 8); g.restore();
+    }),
+    rotten: mk(128, 128, (g) => {
+      g.strokeStyle = '#6c8a3a'; g.lineWidth = 5; g.lineCap = 'round';
+      for (const x of [40, 64, 88]) { g.beginPath(); g.moveTo(x, 54); g.quadraticCurveTo(x - 10, 40, x, 28); g.quadraticCurveTo(x + 10, 16, x, 4); g.stroke(); }
+      g.fillStyle = '#e4e0d4'; g.strokeStyle = '#4b4438'; g.beginPath(); g.ellipse(64, 100, 58, 20, 0, 0, 7); g.fill(); g.stroke();
+      g.fillStyle = '#7d6b3a'; g.beginPath(); g.ellipse(64, 90, 40, 18, 0, Math.PI, 0); g.fill();
+      g.fillStyle = '#8fa23e'; [[50, 82, 8], [74, 78, 10], [62, 86, 6]].forEach(([x, y, r]) => { g.beginPath(); g.arc(x, y, r, 0, 7); g.fill(); });
+      g.fillStyle = '#222'; [[26, 40], [104, 30]].forEach(([x, y]) => { g.beginPath(); g.arc(x, y, 5, 0, 7); g.fill(); g.fillStyle = 'rgba(200,220,255,.8)'; g.beginPath(); g.ellipse(x - 4, y - 6, 4, 6, -0.5, 0, 7); g.ellipse(x + 4, y - 6, 4, 6, 0.5, 0, 7); g.fill(); g.fillStyle = '#222'; });
+    }),
+    thug: mk(128, 230, (g) => {
+      g.lineJoin = 'round'; g.strokeStyle = '#1c1420'; g.lineWidth = 5;
+      g.fillStyle = '#2b2234'; g.fillRect(36, 150, 22, 72); g.fillRect(70, 150, 22, 72); g.strokeRect(36, 150, 22, 72); g.strokeRect(70, 150, 22, 72);
+      g.fillStyle = '#111'; rr(g, 28, 214, 32, 14, 6); g.fill(); rr(g, 68, 214, 32, 14, 6); g.fill();
+      g.fillStyle = '#7b3fa0'; g.beginPath(); g.moveTo(26, 70); g.lineTo(102, 70); g.lineTo(112, 176); g.lineTo(16, 176); g.closePath(); g.fill(); g.stroke();
+      g.fillStyle = '#f4f0e6'; g.beginPath(); g.moveTo(52, 70); g.lineTo(76, 70); g.lineTo(64, 110); g.closePath(); g.fill();
+      g.fillStyle = '#6a3290'; rr(g, 22, 104, 84, 26, 12); g.fill(); g.stroke(); // 腕組み
+      g.fillStyle = '#f0c8a0'; g.beginPath(); g.arc(64, 46, 24, 0, 7); g.fill(); g.stroke();
+      g.fillStyle = '#15121a'; g.beginPath(); g.moveTo(38, 40); g.quadraticCurveTo(40, 6, 88, 10); g.quadraticCurveTo(104, 14, 100, 26); g.quadraticCurveTo(80, 22, 88, 36); g.lineTo(40, 40); g.fill();
+      g.fillStyle = '#111'; rr(g, 42, 40, 18, 10, 3); g.fill(); rr(g, 66, 40, 18, 10, 3); g.fill(); g.fillRect(58, 42, 10, 3);
+      g.strokeStyle = '#7a3b2a'; g.lineWidth = 4; g.beginPath(); g.moveTo(54, 60); g.lineTo(74, 58); g.stroke();
+    }),
+  };
+  const ITEM_H = { onigiri: 0.95, water: 1.1, snack: 1.15, garbage: 1.0, rotten: 0.95, thug: 1.85 };
+
+  // ---------- ゲームの状態 ----------
+  const G = {
+    state: 'title', dist: 0, lane: 0, px: 0, hp: CFG.hpMax, elapsed: 0,
+    stagger: 0, invuln: 0, spd: 1, brisk: false, nextIdx: 1, ending: null, endT: 0, shake: 0, stepT: 0, beatT: 0,
+    objs: [], scen: [], gates: [], fx: [], nextRow: 0, nextScene: { '-1': 0, '1': 0 }, nextLamp: 0, time: 0,
+    hits: 0, picks: 0,
+  };
+  const camZ = () => G.dist - CAM_BACK;
+  const camX = () => G.px * 0.55;
+  const progress = () => clamp(G.dist / L, 0, 1);
+
+  function resetWorld(startDist) {
+    G.dist = startDist; G.lane = 0; G.px = 0; G.hp = CFG.hpMax; G.elapsed = 0; G.stagger = 0; G.invuln = 0; G.spd = 1; G.brisk = false;
+    G.nextIdx = 1; G.ending = null; G.endT = 0; G.shake = 0; G.hits = 0; G.picks = 0;
+    G.objs = []; G.scen = []; G.gates = []; G.fx = [];
+    G.nextRow = startDist + 60; G.nextScene = { '-1': startDist - 8, '1': startDist - 8 }; G.nextLamp = Math.floor(startDist / 14) * 14;
+    G.gateNext = 0;
+    spawn();
+  }
+
+  // ---------- 生成 ----------
+  // 終盤のきびしさ（池袋の少し手前から少しずつ効き始め、池袋の先で最大になる）
+  function lateAt(p) {
+    const p0 = segStart[CFG.late.from] / L;
+    const t = clamp((p - (p0 - 0.02)) / 0.08, 0, 1);
+    return t * t * (3 - 2 * t);
+  }
+  function rowGapAt(p) { return lerp(CFG.rowGap[0], CFG.rowGap[1], Math.pow(p, 0.8)) * lerp(1, CFG.late.gap, lateAt(p)); }
+  function nearStation(z, r) { const zz = wrapZ(z); for (let i = 0; i <= N; i++) { const s = i < N ? segStart[i] : L; if (Math.abs(zz - s) < r) return true; } return false; }
+  function pickWeighted(table) { let tot = 0; for (const k in table) tot += table[k]; let r = Math.random() * tot; for (const k in table) { r -= table[k]; if (r <= 0) return k; } return Object.keys(table)[0]; }
+
+  function spawnRows(upto) {
+    if (G.state !== 'playing') return;
+    while (G.nextRow < upto) {
+      const z = G.nextRow, p = clamp(z / L, 0, 1);
+      if (z > L - 18) { G.nextRow = Infinity; break; }
+      if (nearStation(z, 5)) { G.nextRow += 5; continue; }
+      const lanes = [-1, 0, 1].sort(() => Math.random() - 0.5);
+      let n = 1;
+      if (p > 0.06 && Math.random() < lerp(CFG.doubleChance[0], CFG.doubleChance[1], p) + CFG.late.double * lateAt(p)) n = 2;
+      if (p < 0.05 && Math.random() < 0.3) n = 0;
+      for (let k = 0; k < n; k++) {
+        const w = { garbage: 1, rotten: p > 0.08 ? lerp(0.3, 0.8, p) : 0, thug: (n === 1 && p > 0.22) ? lerp(0.2, 0.5, p) : 0 };
+        const kind = pickWeighted(w);
+        G.objs.push({ kind, x: lanes[k] * LANE, z, done: false, bad: true, vx: 0 });
+      }
+      if (Math.random() < lerp(CFG.itemChance[0], CFG.itemChance[1], p) * lerp(1, CFG.late.item, lateAt(p))) {
+        const kind = pickWeighted({ onigiri: CFG.items.onigiri.w, water: CFG.items.water.w, snack: CFG.items.snack.w });
+        const half = Math.random() < 0.5;
+        const lane = half ? pick([-1, 0, 1]) : lanes[n];
+        G.objs.push({ kind, x: lane * LANE, z: z + (half ? rowGapAt(p) * 0.5 : 0), done: false, bad: false });
+      }
+      G.nextRow += rowGapAt(p) * rand(0.85, 1.15);
+    }
+  }
+
+  function spawnScenery(upto) {
+    for (const side of [-1, 1]) {
+      const key = String(side);
+      while (G.nextScene[key] < upto) {
+        const z = G.nextScene[key], th = themeAt(z);
+        if (th.water && side === 1) { G.nextScene[key] += 6; continue; }
+        let kind = pick(th.kinds);
+        if (kind === 'tree' || Math.random() < th.trees) {
+          G.scen.push({ t: 'tree', x: side * (WALK + rand(0.9, 2.6)), z, h: rand(3.2, 5), c: th.treeC, fl: th.flowersC, seed: (Math.random() * 1e9) | 0 });
+          if (Math.random() < 0.5) G.scen.push({ t: 'tree', x: side * (WALK + rand(3.5, 6)), z: z + rand(0.5, 1.5), h: rand(3.5, 6), c: mul(th.treeC, 0.9), fl: th.flowersC, seed: (Math.random() * 1e9) | 0 });
+          G.nextScene[key] += rand(2.2, 4.2); continue;
+        }
+        let len = rand(6, 12), h = rand(th.hMin, th.hMax), dep = rand(6, 11);
+        if (kind === 'house') { len = rand(4, 6.5); h = rand(3, 4.5); dep = rand(5, 7); }
+        if (kind === 'temple') { len = rand(7, 10); h = 3.4; dep = 8; }
+        if (kind === 'low') { h = Math.min(h, rand(3, 6)); len = rand(4, 7); }
+        if (kind === 'museum') { len = rand(12, 18); h = rand(5, 7); }
+        if (kind === 'warehouse') { len = rand(10, 16); h = rand(5, 9); }
+        const x0 = side * (WALK + rand(0.4, 0.8));
+        const b = { t: 'bldg', kind, side, x0, x1: x0 + side * dep, z0: z, z1: z + len, h, c: pick(th.colorsC), win: th.winC,
+          deco: th.deco, words: th.words, seed: (Math.random() * 1e9) | 0, signs: [] };
+        if ((th.deco === 'signs' || th.deco === 'neon' || th.deco === 'pastel' || th.deco === 'lantern') && th.words) {
+          const cnt = th.deco === 'neon' ? 2 : 1;
+          for (let i = 0; i < cnt; i++) {
+            const sz = z + 0.8 + i * (len * 0.5);
+            if (sz < z + len - 0.5 && h > 3) b.signs.push({ z: sz, word: pick(th.words), c: hex(pick(['#e8473f', '#f5b82e', '#2f8fe0', '#e64aa0', '#3fbf7a', '#9b5de5'])), y0: Math.min(2.8, h * 0.5), len: Math.min(h - 0.6, rand(2.6, 4.2)) });
+          }
+        }
+        G.scen.push(b);
+        G.nextScene[key] += len + rand(th.gap[0], th.gap[1]);
+      }
+    }
+    while (G.nextLamp < upto) {
+      for (const side of [-1, 1]) G.scen.push({ t: 'lamp', x: side * (WALK - 0.35), z: G.nextLamp + (side > 0 ? 7 : 0) });
+      G.nextLamp += 14;
+    }
+    // 駅の門
+    while (true) {
+      const lap = Math.floor(G.gateNext / N), i = G.gateNext % N;
+      const gz = lap * L + segStart[i];
+      if (gz > upto) break;
+      if (gz > camZ() - 2) G.gates.push({ z: gz, i, goal: G.state === 'playing' && lap === 1 && i === 0, start: G.state === 'playing' && lap === 0 && i === 0 });
+      G.gateNext++;
+      if (G.state === 'playing' && G.gateNext > N) break;
+    }
+  }
+
+  function spawn() {
+    const cz = camZ();
+    spawnScenery(cz + DRAW + 15);
+    spawnRows(G.dist + 110);
+    G.scen = G.scen.filter(s => (s.z1 != null ? s.z1 : s.z) > cz - 2);
+    G.objs = G.objs.filter(o => o.z > cz - 1 && !(o.done && o.gone));
+    G.gates = G.gates.filter(g => g.z > cz - 2);
+  }
+
+  // ---------- 進行 ----------
+  const HUD = {
+    time: document.getElementById('hudTime'), hp: document.getElementById('hpFill'), hpBox: document.getElementById('hpBox'),
+    next: document.getElementById('nextName'), nextDist: document.getElementById('nextDist'), count: document.getElementById('stCount'),
+    map: document.getElementById('loopMap'), flash: document.getElementById('flash'), banner: document.getElementById('banner'),
+  };
+  const mapCtx = HUD.map.getContext('2d');
+  let lastHud = {};
+  function setText(el, s) { if (lastHud[el.id] !== s) { el.textContent = s; lastHud[el.id] = s; } }
+
+  function fmtTime(sec) {
+    const m = Math.floor(sec / 60), s = sec - m * 60;
+    return `${m}:${s < 10 ? '0' : ''}${s.toFixed(1)}`;
+  }
+
+  function showBanner(i, opts = {}) {
+    const st = STATIONS[i % N], th = THEMES[st.theme];
+    const prev = STATIONS[(i - 1 + N) % N], next = STATIONS[(i + 1) % N];
+    HUD.banner.innerHTML = `
+      <div class="sign">
+        <div class="sign-kana">${st.kana}</div>
+        <div class="sign-name">${st.name}</div>
+        <div class="sign-band"><span>← ${prev.name}</span><span class="sign-roma">${st.roma}</span><span>${next.name} →</span></div>
+      </div>
+      <div class="sign-sub">${opts.sub || th.label}</div>`;
+    HUD.banner.classList.remove('show'); void HUD.banner.offsetWidth; HUD.banner.classList.add('show');
+  }
+
+  function passStation(i) {
+    if (i >= N) { startEnding('clear'); return; }
+    Sound.station();
+    showBanner(i, { sub: `${i}駅目　${THEMES[STATIONS[i].theme].label}` });
+  }
+
+  function startEnding(kind) {
+    if (G.ending) return;
+    G.ending = kind; G.endT = kind === 'clear' ? 2.6 : 1.8;
+    if (kind === 'clear') {
+      Sound.clear(); showBanner(0, { sub: 'ゴール！ 山手線一周 達成' });
+      for (let i = 0; i < 80; i++) G.fx.push({ t: 'conf', x: rand(0, W), y: rand(-H * 0.5, 0), vx: rand(-30, 30), vy: rand(80, 200), c: pick(['#8cc63f', '#ffd23f', '#ff6b8b', '#4ec3ff', '#ffffff']), life: 3, r: rand(0, 6) });
+    } else { Sound.over(); }
+  }
+
+  function addFloat(text, color) { G.fx.push({ t: 'txt', text, color, x: W / 2 + (G.px - camX()) * F / CAM_BACK, y: FEET - 130, life: 1 }); }
+
+  function hitObj(o) {
+    o.done = true;
+    if (o.bad) {
+      if (G.invuln > 0) return;
+      const d = CFG.obstacles[o.kind].dmg;
+      G.hp -= d; G.hits++; G.stagger = 2.0; G.invuln = 1.0; G.shake = 0.3;
+      Sound.hit(o.kind); addFloat(`-${d}`, '#ff5a5a');
+      HUD.flash.classList.remove('on'); void HUD.flash.offsetWidth; HUD.flash.classList.add('on');
+      if (navigator.vibrate) try { navigator.vibrate(60); } catch (e) {}
+    } else {
+      const h = CFG.items[o.kind].heal;
+      G.hp = Math.min(CFG.hpMax, G.hp + h); G.picks++; o.gone = true;
+      Sound.pickup(o.kind); addFloat(`+${h}`, '#7ee06a');
+      for (let i = 0; i < 8; i++) G.fx.push({ t: 'spark', x: W / 2 + (G.px - camX()) * F / CAM_BACK, y: FEET - 70, vx: rand(-120, 120), vy: rand(-220, -60), life: 0.6, c: o.kind === 'water' ? '#7fd3ff' : '#fff2a8' });
+    }
+  }
+
+  function update(dt) {
+    G.time += dt;
+    if (G.state === 'paused') return;
+    if (G.state === 'title') {
+      G.dist += 6 * dt; G.px += (0 - G.px) * Math.min(1, dt * 5);
+      spawn(); return;
+    }
+    if (G.state !== 'playing') return;
+    const p = progress();
+    if (G.ending) {
+      G.endT -= dt;
+      if (G.ending === 'clear') G.dist += CFG.speed * 0.4 * dt;
+      if (G.endT <= 0) { finish(); return; }
+    } else {
+      G.elapsed += dt;
+      if (G.stagger > 0) G.stagger -= dt;
+      if (G.invuln > 0) G.invuln -= dt;
+      G.brisk = G.hp >= CFG.brisk.hp;
+      G.spd += ((G.brisk ? CFG.brisk.mul : 1) - G.spd) * Math.min(1, dt * 3);
+      const sm = (G.stagger > 0 ? 1 - 0.85 * Math.min(1, G.stagger / 1.2) : 1) * G.spd;
+      G.dist += CFG.speed * sm * dt;
+      G.hp -= lerp(CFG.drain[0], CFG.drain[1], p) * lerp(1, CFG.late.drain, lateAt(p)) * dt;
+      // 足音・心音
+      G.stepT -= dt * sm; if (G.stepT <= 0) { G.stepT = 0.42; Sound.step(); }
+      if (G.hp < 25) { G.beatT -= dt; if (G.beatT <= 0) { G.beatT = 0.9; Sound.beat(); } }
+      while (G.nextIdx <= N && G.dist >= (G.nextIdx < N ? segStart[G.nextIdx] : L)) { passStation(G.nextIdx); G.nextIdx++; }
+      // 当たり判定
+      for (const o of G.objs) {
+        if (o.done) continue;
+        if (o.kind === 'thug') {
+          const rz = o.z - G.dist;
+          if (rz < 32 && rz > 1) { const tx = G.lane * LANE; o.x += clamp(tx - o.x, -2.0 * dt, 2.0 * dt); }
+        }
+        if (Math.abs(o.z - G.dist) < 0.6 && Math.abs(o.x - G.px) < (o.bad ? 0.95 : 1.1)) hitObj(o);
+      }
+      if (G.hp <= 0) { G.hp = 0; startEnding('over'); }
+    }
+    const tx = G.lane * LANE; G.px += clamp(tx - G.px, -18 * dt, 18 * dt);
+    if (G.shake > 0) G.shake -= dt;
+    spawn();
+  }
+
+  // ---------- 描画 ----------
+  let night = 0, fogC = [200, 200, 200], dark = 1;
+  const xs = (x, s) => W / 2 + (x - camX()) * s;
+  const ys = (y, s) => HOR + (CAM_H - y) * s;
+  function fogAt(rz) { return clamp((rz - 35) / (DRAW - 35), 0, 1) * 0.88; }
+  function shadeC(c, rz, f = 1) { return css(mix(mul(c, f * dark), fogC, fogAt(rz))); }
+  function quad(x1, y1, x2, y2, x3, y3, x4, y4) { ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.lineTo(x3, y3); ctx.lineTo(x4, y4); ctx.closePath(); ctx.fill(); }
+
+  function drawSky(p) {
+    const [top, bot] = skyAt(p);
+    fogC = bot;
+    const g = ctx.createLinearGradient(0, 0, 0, HOR);
+    g.addColorStop(0, css(top)); g.addColorStop(1, css(bot));
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, HOR + 2);
+    // 太陽と月
+    const sunP = clamp(p / 0.72, 0, 1);
+    const sx = W * (0.15 + sunP * 0.7), sy = HOR - Math.sin(sunP * Math.PI) * HOR * 0.75 + HOR * 0.12;
+    if (p < 0.76) { ctx.fillStyle = css(mix([255, 246, 210], [255, 150, 90], clamp((p - 0.5) / 0.25, 0, 1)), 0.95); ctx.beginPath(); ctx.arc(sx, sy, W * 0.05, 0, 7); ctx.fill(); }
+    if (night > 0.05) {
+      ctx.fillStyle = `rgba(255,255,240,${night * 0.9})`; ctx.beginPath(); ctx.arc(W * 0.78, HOR * 0.3, W * 0.035, 0, 7); ctx.fill();
+      ctx.fillStyle = css(top); ctx.beginPath(); ctx.arc(W * 0.795, HOR * 0.29, W * 0.03, 0, 7); ctx.fill();
+      for (let i = 0; i < 40; i++) { const a = hash(i, 7, 3), b = hash(i, 9, 1); ctx.fillStyle = `rgba(255,255,255,${night * 0.7 * hash(i, 3, 3)})`; ctx.fillRect(a * W, b * HOR * 0.7, 1.5, 1.5); }
+    }
+    // 遠くの街並み
+    const scC = mix(bot, mul(top, 0.6), 0.35);
+    ctx.fillStyle = css(scC);
+    const off = -camX() * 4;
+    for (const b of skyline) ctx.fillRect(b.x * W + off, HOR - b.h * H, b.w * W + 1, b.h * H + 2);
+    if (night > 0.2) {
+      for (const b of skyline) { if (b.lit < 0.6) { ctx.fillStyle = `rgba(255,220,140,${night * 0.6})`; ctx.fillRect(b.x * W + off + b.w * W * 0.4, HOR - b.h * H * 0.6, 1.5, 1.5); } }
+    }
+  }
+
+  function drawGround() {
+    const cz = camZ(), STRIP = 2;
+    const zStart = Math.floor((cz + NEAR) / STRIP) * STRIP;
+    const zFar = zStart + Math.ceil(DRAW / STRIP) * STRIP;
+    ctx.fillStyle = css(fogC); ctx.fillRect(0, HOR, W, H - HOR);
+    for (let z = zFar; z >= zStart; z -= STRIP) {
+      const za = Math.max(z, cz + NEAR), zb = z + STRIP;
+      if (zb <= cz + NEAR) continue;
+      const ra = za - cz, rb = zb - cz, sa = F / ra, sb = F / rb;
+      const ya = HOR + CAM_H * sa, yb = HOR + CAM_H * sb;
+      const th = themeAt(z), alt = (Math.floor(z / STRIP) & 1) ? 1 : 0.93;
+      const fr = (ra + rb) / 2;
+      ctx.fillStyle = shadeC(th.groundC, fr, alt); ctx.fillRect(0, yb, W, ya - yb + 1);
+      if (th.water) {
+        ctx.fillStyle = shadeC([70, 130, 175], fr, alt * (1 + 0.08 * Math.sin(z * 0.7 + G.time * 2)));
+        quad(xs(WALK + 0.4, sa), ya, W, ya, W, yb, xs(WALK + 0.4, sb), yb);
+      }
+      ctx.fillStyle = shadeC(th.walkC, fr, alt);
+      quad(xs(-WALK, sa), ya, xs(WALK, sa), ya, xs(WALK, sb), yb, xs(-WALK, sb), yb);
+      ctx.fillStyle = shadeC(th.roadC, fr, 1);
+      quad(xs(-ROAD, sa), ya, xs(ROAD, sa), ya, xs(ROAD, sb), yb, xs(-ROAD, sb), yb);
+      if (th.crosswalk && (Math.floor(z / 30) % 2 === 0) && (Math.floor(z / STRIP) % 15 < 3)) {
+        ctx.fillStyle = shadeC([235, 235, 235], fr, 1);
+        for (let k = -5; k < 5; k++) { const x1 = k * 0.54 + 0.1, x2 = x1 + 0.3; quad(xs(x1, sa), ya, xs(x2, sa), ya, xs(x2, sb), yb, xs(x1, sb), yb); }
+      } else if (Math.floor(z / STRIP) % 3 === 0) {
+        ctx.fillStyle = shadeC([236, 232, 220], fr, 1);
+        for (const lx of [-LANE / 2, LANE / 2]) quad(xs(lx - 0.05, sa), ya, xs(lx + 0.05, sa), ya, xs(lx + 0.05, sb), yb, xs(lx - 0.05, sb), yb);
+      }
+      ctx.fillStyle = shadeC([190, 188, 180], fr, 1);
+      for (const ex of [-ROAD, ROAD]) quad(xs(ex - 0.08, sa), ya, xs(ex + 0.08, sa), ya, xs(ex + 0.08, sb), yb, xs(ex - 0.08, sb), yb);
+    }
+  }
+
+  function winLit(b, r, c) { return hash(b.seed, r, c) < 0.55; }
+
+  function drawBldg(b) {
+    const cz = camZ();
+    const za = Math.max(b.z0, cz + NEAR), zb = b.z1;
+    if (zb <= cz + NEAR) return;
+    const ra = za - cz, rb = zb - cz;
+    if (ra > DRAW + 5) return;
+    const sa = F / ra, sb = F / rb, fr = ra;
+    const fog = fogAt(fr);
+    const xa = xs(b.x0, sa), xb = xs(b.x0, sb);
+    const y0a = ys(0, sa), y1a = ys(b.h, sa), y0b = ys(0, sb), y1b = ys(b.h, sb);
+    // 横の面（道路側）
+    ctx.fillStyle = shadeC(b.c, fr, 0.78);
+    quad(xa, y0a, xa, y1a, xb, y1b, xb, y0b);
+    // 窓
+    const winDay = mix(mul(b.win, 0.75), b.c, 0.25);
+    const lit = [255, 214, 130];
+    const colW = 1.6;
+    const style = b.kind === 'glass' ? [1.45, 1.25] : b.kind === 'warehouse' ? [0.6, 0.5] : b.kind === 'house' ? [0.9, 0.9] : [0.85, 0.8];
+    if (b.kind !== 'temple' && fog < 0.75) {
+      const rows = b.kind === 'warehouse' ? 1 : Math.floor((b.h - 1.0) / 1.4);
+      const cols = Math.floor((b.z1 - b.z0 - 0.4) / colW);
+      if (ra < 45 && b.kind !== 'house') {
+        for (let c = 0; c < cols; c++) {
+          const wz0 = b.z0 + 0.3 + c * colW + (colW - style[0]) / 2, wz1 = wz0 + style[0];
+          if (wz0 < cz + NEAR) continue;
+          const s0 = F / (wz0 - cz), s1 = F / (wz1 - cz);
+          const x0 = xs(b.x0, s0), x1 = xs(b.x0, s1);
+          for (let r = 0; r < rows; r++) {
+            const wy0 = b.kind === 'warehouse' ? b.h - 1.6 : 1.1 + r * 1.4, wy1 = wy0 + style[1];
+            if (ys(wy1, s0) < -10) break;
+            const on = night > 0.3 && winLit(b, r, c);
+            ctx.fillStyle = on ? css(mix(lit, fogC, fog * 0.5)) : shadeC(winDay, fr, (r + c) & 1 ? 1 : 0.92);
+            quad(x0, ys(wy0, s0), x0, ys(wy1, s0), x1, ys(wy1, s1), x1, ys(wy0, s1));
+          }
+        }
+      } else if (b.kind !== 'house') {
+        for (let r = 0; r < rows; r++) {
+          const wy0 = b.kind === 'warehouse' ? b.h - 1.6 : 1.1 + r * 1.4, wy1 = wy0 + style[1] * 0.8;
+          const on = night > 0.3 && winLit(b, r, 99);
+          ctx.fillStyle = on ? css(mix(lit, fogC, fog * 0.6), 0.8) : shadeC(winDay, fr, 0.95);
+          quad(xa, ys(wy0, sa), xa, ys(wy1, sa), xb, ys(wy1, sb), xb, ys(wy0, sb));
+        }
+      }
+    }
+    // 屋根の上面
+    if (b.h < CAM_H) {
+      ctx.fillStyle = shadeC(b.c, fr, 1.08);
+      quad(xs(b.x0, sa), y1a, xs(b.x1, sa), y1a, xs(b.x1, sb), y1b, xs(b.x0, sb), y1b);
+    }
+    // 正面
+    const front = b.z0 >= cz + NEAR;
+    if (front) {
+      const fx0 = xs(b.x0, sa), fx1 = xs(b.x1, sa);
+      ctx.fillStyle = shadeC(b.c, fr, 0.95);
+      ctx.fillRect(Math.min(fx0, fx1), y1a, Math.abs(fx1 - fx0), y0a - y1a);
+      if (b.kind === 'house' || b.kind === 'low') {
+        // 窓と入口
+        const w = Math.abs(fx1 - fx0), dir = Math.sign(fx1 - fx0);
+        ctx.fillStyle = night > 0.3 ? css(mix(lit, fogC, fog)) : shadeC(b.win, fr, 0.8);
+        ctx.fillRect(fx0 + dir * w * 0.2 - (dir < 0 ? w * 0.22 : 0), ys(2.4, sa), w * 0.22, 0.8 * sa);
+        ctx.fillStyle = shadeC([90, 70, 55], fr, 1);
+        ctx.fillRect(fx0 + dir * w * 0.6 - (dir < 0 ? w * 0.18 : 0), ys(1.8, sa), w * 0.18, 1.8 * sa);
+      } else if (b.kind !== 'temple' && ra < 60) {
+        const dep = Math.abs(b.x1 - b.x0), cols = Math.floor(dep / colW), rows = Math.floor((b.h - 1.0) / 1.4);
+        for (let r = 0; r < rows; r++) {
+          const y = ys(1.1 + r * 1.4 + style[1], sa); if (y < -10) break;
+          for (let c = 0; c < cols; c++) {
+            const wx = b.x0 + b.side * (0.4 + c * colW);
+            const on = night > 0.3 && winLit(b, r, c + 50);
+            ctx.fillStyle = on ? css(mix(lit, fogC, fog * 0.5)) : shadeC(winDay, fr, 0.9);
+            const x0 = xs(wx, sa), x1 = xs(wx + b.side * style[0], sa);
+            ctx.fillRect(Math.min(x0, x1), y, Math.abs(x1 - x0), style[1] * sa);
+          }
+        }
+      }
+      // 三角屋根
+      if (b.kind === 'house') {
+        ctx.fillStyle = shadeC(mix(b.c, [120, 60, 50], 0.6), fr, 1);
+        ctx.beginPath(); ctx.moveTo(fx0, y1a); ctx.lineTo(fx1, y1a); ctx.lineTo((fx0 + fx1) / 2, ys(b.h + 1.6, sa)); ctx.closePath(); ctx.fill();
+      }
+    }
+    if (b.kind === 'house') { // 屋根の横
+      ctx.fillStyle = shadeC(mix(b.c, [120, 60, 50], 0.6), fr, 0.8);
+      const xm = b.x0 + (b.x1 - b.x0) / 2;
+      quad(xs(b.x0, sa), y1a, xs(xm, sa), ys(b.h + 1.6, sa), xs(xm, sb), ys(b.h + 1.6, sb), xs(b.x0, sb), y1b);
+    }
+    if (b.kind === 'temple') {
+      const rc = [60, 55, 52], ox = b.x0 - b.side * 1.0, xm = b.x0 + (b.x1 - b.x0) / 2;
+      ctx.fillStyle = shadeC(rc, fr, 0.85);
+      quad(xs(ox, sa), ys(b.h - 0.6, sa), xs(xm, sa), ys(b.h + 2.2, sa), xs(xm, sb), ys(b.h + 2.2, sb), xs(ox, sb), ys(b.h - 0.6, sb));
+      if (front) { ctx.fillStyle = shadeC(rc, fr, 1); ctx.beginPath(); ctx.moveTo(xs(ox, sa), ys(b.h - 0.6, sa)); ctx.lineTo(xs(b.x1 + b.side * 1.0, sa), ys(b.h - 0.6, sa)); ctx.lineTo(xs(xm, sa), ys(b.h + 2.2, sa)); ctx.closePath(); ctx.fill(); }
+      // 柱
+      ctx.fillStyle = shadeC([170, 50, 40], fr, 1);
+      for (let z = b.z0 + 0.5; z < b.z1; z += 2) { if (z < cz + NEAR) continue; const s = F / (z - cz); const x = xs(b.x0 - b.side * 0.2, s); ctx.fillRect(x - 0.12 * s, ys(b.h - 0.6, s), 0.24 * s, (b.h - 0.6) * s); }
+    }
+    // 飾り
+    if (b.deco === 'lantern') {
+      for (let z = b.z0 + 0.6; z < b.z1; z += 1.3) {
+        if (z < cz + NEAR + 0.3) continue; const s = F / (z - cz); const x = xs(b.x0 - b.side * 0.3, s), y = ys(2.4, s);
+        if (night > 0.2) { ctx.fillStyle = `rgba(255,120,80,${0.25 * night})`; ctx.beginPath(); ctx.arc(x, y, 0.6 * s, 0, 7); ctx.fill(); }
+        ctx.fillStyle = shadeC([225, 60, 50], z - cz, night > 0.3 ? 1.6 : 1); ctx.beginPath(); ctx.ellipse(x, y, 0.2 * s, 0.28 * s, 0, 0, 7); ctx.fill();
+      }
+    }
+    if (b.deco === 'awning' || b.deco === 'pastel') {
+      const cols = b.deco === 'pastel' ? [[255, 160, 200], [255, 255, 255], [160, 220, 255], [255, 255, 255]] : [[200, 60, 50], [245, 240, 230], [60, 120, 70], [245, 240, 230]];
+      const ci = b.seed % 2 ? 0 : 2;
+      for (let z = b.z0 + 0.2, k = 0; z < b.z1 - 0.2; z += 0.8, k++) {
+        const z1 = Math.min(z + 0.8, b.z1 - 0.2); if (z < cz + NEAR) continue;
+        const s0 = F / (z - cz), s1 = F / (z1 - cz);
+        ctx.fillStyle = shadeC(cols[(ci + (k & 1)) % 4], z - cz, 1);
+        const xi = b.x0, xo = b.x0 - b.side * 0.9;
+        quad(xs(xi, s0), ys(2.7, s0), xs(xi, s1), ys(2.7, s1), xs(xo, s1), ys(2.1, s1), xs(xo, s0), ys(2.1, s0));
+      }
+    }
+    if (b.deco === 'screen' && b.h > 6) {
+      const z0 = Math.max(b.z0 + 1, cz + NEAR), z1 = b.z1 - 1;
+      if (z1 > z0) {
+        const s0 = F / (z0 - cz), s1 = F / (z1 - cz), x0 = xs(b.x0 - b.side * 0.05, s0), x1 = xs(b.x0 - b.side * 0.05, s1);
+        const yA = b.h * 0.45, yB = Math.min(b.h - 0.5, yA + 4);
+        const hue = (G.time * 40 + b.seed % 360) % 360;
+        ctx.fillStyle = `hsl(${hue},75%,${55 - fog * 20}%)`;
+        quad(x0, ys(yA, s0), x0, ys(yB, s0), x1, ys(yB, s1), x1, ys(yA, s1));
+        const m = (Math.sin(G.time * 2 + b.seed) + 1) / 2, zm = lerp(z0, z1, m), sm = F / (zm - cz);
+        ctx.fillStyle = `hsla(${(hue + 160) % 360},85%,70%,0.9)`;
+        ctx.beginPath(); ctx.arc(xs(b.x0, sm), ys((yA + yB) / 2, sm), (yB - yA) * 0.3 * sm, 0, 7); ctx.fill();
+      }
+    }
+    for (const sg of b.signs) {
+      if (sg.z < cz + NEAR + 0.5) continue;
+      const s = F / (sg.z - cz), rz = sg.z - cz;
+      const xA = xs(b.x0 - b.side * 0.1, s), xB = xs(b.x0 - b.side * 0.85, s);
+      const yT = ys(sg.y0 + sg.len, s), yBt = ys(sg.y0, s);
+      const neon = b.deco === 'neon';
+      if (neon && night > 0.2) { ctx.fillStyle = css(sg.c, 0.25 * night); ctx.fillRect(Math.min(xA, xB) - 0.3 * s, yT - 0.3 * s, Math.abs(xB - xA) + 0.6 * s, yBt - yT + 0.6 * s); }
+      ctx.fillStyle = neon ? shadeC([30, 30, 40], rz, 1) : shadeC(sg.c, rz, night > 0.4 ? 1.3 : 1);
+      ctx.fillRect(Math.min(xA, xB), yT, Math.abs(xB - xA), yBt - yT);
+      const fs = Math.abs(xB - xA) * 0.72;
+      if (fs > 5) {
+        ctx.fillStyle = neon ? css(mix(sg.c, [255, 255, 255], 0.35 + 0.3 * night)) : '#fff';
+        ctx.font = `${fs | 0}px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        const chars = [...sg.word], step = Math.min(fs * 1.05, (yBt - yT) / chars.length);
+        const cx = (xA + xB) / 2; let y = yT + (yBt - yT - step * chars.length) / 2 + step / 2;
+        for (const ch of chars) { ctx.fillText(ch, cx, y); y += step; }
+      }
+    }
+  }
+
+  function drawTree(t) {
+    const rz = t.z - camZ(); if (rz < NEAR) return;
+    const s = F / rz, x = xs(t.x, s), yb = ys(0, s);
+    ctx.fillStyle = shadeC([110, 80, 55], rz, 1); ctx.fillRect(x - 0.13 * s, ys(t.h * 0.45, s), 0.26 * s, t.h * 0.45 * s);
+    const r = t.h * 0.3 * s;
+    ctx.fillStyle = shadeC(t.c, rz, 0.85); ctx.beginPath(); ctx.arc(x, ys(t.h * 0.62, s), r, 0, 7); ctx.fill();
+    ctx.fillStyle = shadeC(t.c, rz, 1.05); ctx.beginPath(); ctx.arc(x - r * 0.25, ys(t.h * 0.75, s), r * 0.75, 0, 7); ctx.fill();
+    if (t.fl) { ctx.fillStyle = shadeC(t.fl, rz, 1); for (let i = 0; i < 6; i++) { ctx.beginPath(); ctx.arc(x + (hash(t.seed, i, 1) - 0.5) * r * 1.4, ys(t.h * (0.5 + hash(t.seed, i, 2) * 0.35), s), 0.12 * s, 0, 7); ctx.fill(); } }
+    void yb;
+  }
+
+  function drawLamp(l) {
+    const rz = l.z - camZ(); if (rz < NEAR) return;
+    const s = F / rz, x = xs(l.x, s);
+    ctx.fillStyle = shadeC([70, 74, 80], rz, 1); ctx.fillRect(x - 0.05 * s, ys(3.4, s), 0.1 * s, 3.4 * s);
+    ctx.fillRect(x - 0.25 * s, ys(3.45, s), 0.5 * s, 0.12 * s);
+    if (night > 0.2) { ctx.fillStyle = `rgba(255,230,160,${0.22 * night})`; ctx.beginPath(); ctx.arc(x, ys(3.3, s), 0.9 * s, 0, 7); ctx.fill(); ctx.fillStyle = `rgba(255,240,190,${night})`; ctx.fillRect(x - 0.2 * s, ys(3.35, s), 0.4 * s, 0.08 * s); }
+  }
+
+  function drawGate(g) {
+    const rz = g.z - camZ(); if (rz < NEAR + 0.3 || rz > DRAW) return;
+    const s = F / rz, fog = fogAt(rz), st = STATIONS[g.i % N];
+    ctx.globalAlpha = 1 - fog * 0.6;
+    ctx.fillStyle = shadeC([120, 125, 130], rz, 1);
+    for (const px of [-3.4, 3.4]) ctx.fillRect(xs(px, s) - 0.15 * s, ys(4.6, s), 0.3 * s, 4.6 * s);
+    const x0 = xs(-3.7, s), x1 = xs(3.7, s), yT = ys(4.8, s), yB = ys(3.2, s);
+    ctx.fillStyle = '#fbfbf7'; ctx.fillRect(x0, yT, x1 - x0, yB - yT);
+    ctx.fillStyle = '#8cc63f'; ctx.fillRect(x0, ys(3.5, s), x1 - x0, 0.3 * s);
+    ctx.strokeStyle = '#555'; ctx.lineWidth = Math.max(1, 0.04 * s); ctx.strokeRect(x0, yT, x1 - x0, yB - yT);
+    const fs = 0.72 * s;
+    if (fs > 5) {
+      ctx.fillStyle = '#1d1f22'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      const label = g.goal ? `${st.name} ゴール` : g.start ? `${st.name} スタート` : st.name;
+      ctx.font = `${fs | 0}px ${FONT}`;
+      const tw = ctx.measureText(label).width, maxW = (x1 - x0) * 0.9;
+      if (tw > maxW) ctx.font = `${(fs * maxW / tw) | 0}px ${FONT}`;
+      ctx.fillText(label, (x0 + x1) / 2, ys(4.05, s));
+      if (fs > 14) { ctx.font = `${(0.26 * s) | 0}px ${FONT_B}`; ctx.fillStyle = '#444'; ctx.fillText(st.kana, (x0 + x1) / 2, ys(4.6, s)); ctx.fillStyle = '#fff'; ctx.fillText(st.roma, (x0 + x1) / 2, ys(3.35, s)); }
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawObj(o) {
+    if (o.gone) return;
+    const rz = o.z - camZ(); if (rz < NEAR) return;
+    const s = F / rz, sp = SPR[o.kind];
+    const alpha = 1 - clamp((rz - 90) / 25, 0, 1);
+    if (alpha <= 0) return;
+    const hgt = ITEM_H[o.kind] * s, wid = hgt * sp.width / sp.height;
+    const bob = o.bad ? 0 : (0.25 + Math.sin(G.time * 5 + o.z) * 0.1);
+    const x = xs(o.x, s), yb = ys(0, s);
+    ctx.globalAlpha = alpha * (o.done && o.bad ? 0.5 : 1);
+    ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(x, yb, wid * 0.5, wid * 0.14, 0, 0, 7); ctx.fill();
+    if (!o.bad) { ctx.fillStyle = `rgba(255,250,200,${0.25 + 0.15 * Math.sin(G.time * 6 + o.z)})`; ctx.beginPath(); ctx.arc(x, yb - hgt * 0.5 - bob * s, hgt * 0.62, 0, 7); ctx.fill(); }
+    ctx.drawImage(sp, x - wid / 2, yb - hgt - bob * s, wid, hgt);
+    if (o.kind === 'thug' && rz < 26 && !o.done) {
+      const fs = Math.max(10, 0.32 * s);
+      ctx.font = `${fs | 0}px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      const bx = x + wid * 0.55, by = yb - hgt * 1.05;
+      ctx.fillStyle = '#fff'; rr(ctx, bx - fs * 1.4, by - fs * 0.75, fs * 2.8, fs * 1.5, fs * 0.4); ctx.fill();
+      ctx.fillStyle = '#c0283a'; ctx.fillText('おい！', bx, by);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawPlayer() {
+    const k = F / CAM_BACK, x = xs(G.px, k), y = FEET;
+    const u = k * 0.95; // 1単位の大きさ
+    let phase = (G.dist / 1.6) * Math.PI;
+    let sink = 0;
+    if (G.ending === 'over') { sink = clamp(1 - G.endT / 1.8, 0, 1) * 0.5; phase = 0; }
+    if (G.state === 'playing' && G.invuln > 0 && Math.floor(G.invuln * 12) % 2 === 0) return;
+    const sw = Math.sin(phase), bob = Math.abs(Math.cos(phase)) * 0.05 * u;
+    const lean = clamp((G.lane * LANE - G.px) * -0.12, -0.25, 0.25);
+    ctx.fillStyle = 'rgba(0,0,0,.28)'; ctx.beginPath(); ctx.ellipse(x, y, 0.42 * u, 0.12 * u, 0, 0, 7); ctx.fill();
+    ctx.save(); ctx.translate(x, y + sink * u); ctx.rotate(lean);
+    const sc = u;
+    // 足
+    ctx.fillStyle = '#2f3f5c';
+    ctx.fillRect(-0.2 * sc, -0.62 * sc + sw * 0.06 * sc, 0.16 * sc, 0.6 * sc - sw * 0.06 * sc);
+    ctx.fillRect(0.04 * sc, -0.62 * sc - sw * 0.06 * sc, 0.16 * sc, 0.6 * sc + sw * 0.06 * sc);
+    ctx.fillStyle = '#f4f4f0';
+    ctx.fillRect(-0.23 * sc, -0.06 * sc + sw * 0.05 * sc, 0.22 * sc, 0.1 * sc);
+    ctx.fillRect(0.01 * sc, -0.06 * sc - sw * 0.05 * sc, 0.22 * sc, 0.1 * sc);
+    ctx.translate(0, -bob);
+    // 腕
+    ctx.fillStyle = '#f0c8a0';
+    ctx.save(); ctx.translate(-0.3 * sc, -1.08 * sc); ctx.rotate(-sw * 0.4); ctx.fillRect(-0.06 * sc, 0, 0.12 * sc, 0.42 * sc); ctx.restore();
+    ctx.save(); ctx.translate(0.3 * sc, -1.08 * sc); ctx.rotate(sw * 0.4); ctx.fillRect(-0.06 * sc, 0, 0.12 * sc, 0.42 * sc); ctx.restore();
+    // 体
+    ctx.fillStyle = '#5fb3d9'; rr(ctx, -0.3 * sc, -1.15 * sc, 0.6 * sc, 0.58 * sc, 0.12 * sc); ctx.fill();
+    // リュック
+    ctx.fillStyle = '#e8743b'; rr(ctx, -0.24 * sc, -1.1 * sc, 0.48 * sc, 0.46 * sc, 0.1 * sc); ctx.fill();
+    ctx.fillStyle = '#c95a28'; rr(ctx, -0.16 * sc, -0.86 * sc, 0.32 * sc, 0.16 * sc, 0.05 * sc); ctx.fill();
+    // 頭
+    ctx.fillStyle = '#3a2a22'; ctx.beginPath(); ctx.arc(0, -1.36 * sc, 0.22 * sc, 0, 7); ctx.fill();
+    ctx.fillStyle = '#8cc63f'; ctx.beginPath(); ctx.arc(0, -1.42 * sc, 0.23 * sc, Math.PI, 0); ctx.fill();
+    ctx.fillRect(-0.23 * sc, -1.44 * sc, 0.46 * sc, 0.06 * sc);
+    ctx.restore();
+  }
+
+  function drawFx(dt) {
+    for (const f of G.fx) {
+      f.life -= dt;
+      if (f.t === 'txt') {
+        f.y -= 60 * dt; ctx.globalAlpha = clamp(f.life * 1.5, 0, 1);
+        ctx.font = `${Math.round(W * 0.075)}px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.lineWidth = 5; ctx.strokeStyle = 'rgba(0,0,0,.55)'; ctx.strokeText(f.text, f.x, f.y); ctx.fillStyle = f.color; ctx.fillText(f.text, f.x, f.y);
+      } else if (f.t === 'spark') {
+        f.x += f.vx * dt; f.y += f.vy * dt; f.vy += 500 * dt; ctx.globalAlpha = clamp(f.life * 2, 0, 1);
+        ctx.fillStyle = f.c; ctx.fillRect(f.x - 3, f.y - 3, 6, 6);
+      } else if (f.t === 'conf') {
+        f.x += f.vx * dt; f.y += f.vy * dt; f.r += dt * 5; ctx.globalAlpha = clamp(f.life, 0, 1);
+        ctx.save(); ctx.translate(f.x, f.y); ctx.rotate(f.r); ctx.fillStyle = f.c; ctx.fillRect(-5, -3, 10, 6); ctx.restore();
+      }
+    }
+    ctx.globalAlpha = 1;
+    G.fx = G.fx.filter(f => f.life > 0);
+  }
+
+  function drawMap() {
+    const c = mapCtx, s = HUD.map.width, r = s * 0.36, cx = s / 2, cy = s / 2;
+    c.clearRect(0, 0, s, s);
+    c.lineWidth = s * 0.07; c.strokeStyle = 'rgba(255,255,255,.35)'; c.beginPath(); c.arc(cx, cy, r, 0, 7); c.stroke();
+    const p = progress();
+    c.strokeStyle = '#8cc63f'; c.beginPath(); c.arc(cx, cy, r, 0, p * Math.PI * 2); c.stroke();
+    c.fillStyle = '#ffffff';
+    for (let i = 0; i < N; i++) { const a = segStart[i] / L * Math.PI * 2; c.beginPath(); c.arc(cx + Math.cos(a) * r, cy + Math.sin(a) * r, s * (i === 0 ? 0.05 : 0.02), 0, 7); c.fill(); }
+    const a = p * Math.PI * 2;
+    c.fillStyle = '#e8743b'; c.strokeStyle = '#fff'; c.lineWidth = s * 0.025; c.beginPath(); c.arc(cx + Math.cos(a) * r, cy + Math.sin(a) * r, s * 0.075, 0, 7); c.fill(); c.stroke();
+  }
+
+  function updateHud() {
+    if (G.state !== 'playing' && G.state !== 'paused') return;
+    setText(HUD.time, fmtTime(G.elapsed));
+    const hp = clamp(G.hp / CFG.hpMax, 0, 1);
+    HUD.hp.style.transform = `scaleX(${hp})`;
+    HUD.hp.style.background = hp > 0.5 ? '#7ccf4a' : hp > 0.25 ? '#f2c335' : '#ef4b4b';
+    HUD.hpBox.classList.toggle('low', hp < 0.25);
+    HUD.hpBox.classList.toggle('brisk', G.brisk && !G.ending);
+    const ni = Math.min(G.nextIdx, N);
+    const nz = G.nextIdx < N ? segStart[G.nextIdx] : L;
+    setText(HUD.next, G.nextIdx < N ? STATIONS[ni].name : '東京（ゴール）');
+    setText(HUD.nextDist, `あと ${Math.max(0, (nz - G.dist) / UPK).toFixed(1)}km`);
+    setText(HUD.count, `${G.nextIdx - 1}/${N}駅`);
+    drawMap();
+  }
+
+  function render(dt) {
+    const p = G.state === 'title' ? 0.08 : progress();
+    night = clamp((p - 0.62) / 0.22, 0, 1);
+    dark = lerp(1, 0.5, night);
+    ctx.save();
+    if (G.shake > 0) ctx.translate(rand(-6, 6) * G.shake * 3, rand(-4, 4) * G.shake * 3);
+    drawSky(p);
+    drawGround();
+    const list = [];
+    for (const s of G.scen) list.push([s.t === 'bldg' ? s.z0 : s.z, s]);
+    for (const g of G.gates) list.push([g.z, g]);
+    for (const o of G.objs) list.push([o.z, o]);
+    list.sort((a, b) => b[0] - a[0]);
+    for (const [, it] of list) {
+      if (it.t === 'bldg') drawBldg(it); else if (it.t === 'tree') drawTree(it); else if (it.t === 'lamp') drawLamp(it);
+      else if (it.kind) drawObj(it); else drawGate(it);
+    }
+    drawPlayer();
+    ctx.restore();
+    drawFx(dt);
+    updateHud();
+  }
+
+  // ---------- 画面の切り替え ----------
+  const UI = {
+    title: document.getElementById('scrTitle'), pause: document.getElementById('scrPause'), result: document.getElementById('scrResult'),
+    hud: document.getElementById('hud'), best: document.getElementById('bestBox'), resBody: document.getElementById('resBody'),
+    sound: document.querySelectorAll('.btn-sound'),
+  };
+  function show(el) { for (const k of ['title', 'pause', 'result']) UI[k].hidden = UI[k] !== el; }
+
+  function renderBest() {
+    const r = Records.load();
+    UI.best.innerHTML = `
+      <div class="best-row"><span>いちばん遠く</span><b>${r.bestKm > 0 ? `${r.bestStationName}（${r.bestStations}駅・${r.bestKm.toFixed(1)}km）` : 'まだ記録なし'}</b></div>
+      <div class="best-row"><span>一周タイム</span><b>${r.bestTimeMs != null ? fmtTime(r.bestTimeMs / 1000) : '--:--'}</b></div>`;
+  }
+
+  function startGame() {
+    Sound.unlock(); Sound.click();
+    G.state = 'playing'; resetWorld(0); G.gateNext = 0; G.gates = []; spawn();
+    lastHud = {};
+    UI.hud.hidden = false; show(null);
+    showBanner(0, { sub: '一周スタート！ 外回りで歩こう' });
+    Sound.station();
+  }
+  function toTitle() {
+    G.state = 'title'; UI.hud.hidden = true; HUD.banner.classList.remove('show');
+    resetWorld(rand(0, L)); G.gateNext = Math.floor(G.dist / L) * N + stationIndexAt(G.dist) + 1; G.gates = []; spawn();
+    renderBest(); show(UI.title);
+  }
+  function pause() { if (G.state !== 'playing' || G.ending) return; G.state = 'paused'; show(UI.pause); }
+  function resume() { if (G.state !== 'paused') return; G.state = 'playing'; show(null); Sound.unlock(); }
+
+  function finish() {
+    const cleared = G.ending === 'clear';
+    const stations = cleared ? N : G.nextIdx - 1;
+    const km = cleared ? TOTAL_KM : G.dist / UPK;
+    const run = { cleared, stations, stationName: cleared ? '一周' : STATIONS[stations].name, km: Math.round(km * 10) / 10,
+      timeMs: Math.round(G.elapsed * 1000), hits: G.hits, picks: G.picks, date: new Date().toISOString(), version: 1 };
+    const res = Records.submit(run);
+    G.state = 'result';
+    const nextName = STATIONS[Math.min(stations + 1, N - 1)].name;
+    const rec = res.records;
+    UI.resBody.innerHTML = cleared ? `
+      <div class="res-eyebrow">山手線 一周達成</div>
+      <div class="res-big">${fmtTime(run.timeMs / 1000)}</div>
+      ${res.newTime ? '<div class="res-new">自己ベスト更新！</div>' : `<div class="res-sub">自己ベスト ${fmtTime(rec.bestTimeMs / 1000)}</div>`}
+      <div class="res-stats"><span>${N}駅・${TOTAL_KM.toFixed(1)}km</span><span>ぶつかった回数 ${run.hits}</span></div>` : `
+      <div class="res-eyebrow">${nextName}の手前でダウン…</div>
+      <div class="res-big">${run.stationName}<small>まで</small></div>
+      <div class="res-stats"><span>${stations}駅</span><span>${run.km.toFixed(1)}km</span><span>${fmtTime(run.timeMs / 1000)}</span></div>
+      ${res.newDistance ? '<div class="res-new">自己ベスト更新！</div>' : `<div class="res-sub">自己ベスト ${rec.bestStationName}（${rec.bestStations}駅・${rec.bestKm.toFixed(1)}km）</div>`}`;
+    UI.resBody.insertAdjacentHTML('beforeend', '<div class="res-note">みんなとのランキングはアプリ版で登場予定</div>');
+    show(UI.result);
+  }
+
+  // ---------- 操作 ----------
+  function move(d) {
+    if (G.state !== 'playing' || G.ending) return;
+    G.lane = clamp(G.lane + d, -1, 1);
+  }
+  let touch = null;
+  stage.addEventListener('touchstart', (e) => {
+    if (e.target.closest('button')) return;
+    e.preventDefault();
+    const t = e.changedTouches[0]; touch = { x: t.clientX, y: t.clientY, swiped: false };
+  }, { passive: false });
+  stage.addEventListener('touchmove', (e) => {
+    if (!touch) return; e.preventDefault();
+    const t = e.changedTouches[0], dx = t.clientX - touch.x;
+    if (!touch.swiped && Math.abs(dx) > 28) { move(dx > 0 ? 1 : -1); touch.swiped = true; }
+  }, { passive: false });
+  stage.addEventListener('touchend', (e) => {
+    if (!touch) return; e.preventDefault();
+    if (!touch.swiped) { const r = stage.getBoundingClientRect(); move(touch.x - r.left < r.width / 2 ? -1 : 1); }
+    touch = null;
+  }, { passive: false });
+  stage.addEventListener('mousedown', (e) => {
+    if (e.target.closest('button') || G.state !== 'playing') return;
+    const r = stage.getBoundingClientRect(); move(e.clientX - r.left < r.width / 2 ? -1 : 1);
+  });
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowLeft' || e.key === 'a') move(-1);
+    else if (e.key === 'ArrowRight' || e.key === 'd') move(1);
+    else if (e.key === ' ' || e.key === 'Escape') { if (G.state === 'playing') pause(); else if (G.state === 'paused') resume(); }
+    else if (e.key === 'Enter' && G.state === 'title') startGame();
+  });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); });
+
+  document.getElementById('btnStart').addEventListener('click', startGame);
+  document.getElementById('btnPause').addEventListener('click', pause);
+  document.getElementById('btnResume').addEventListener('click', resume);
+  document.getElementById('btnQuit').addEventListener('click', toTitle);
+  document.getElementById('btnRetry').addEventListener('click', startGame);
+  document.getElementById('btnTitle').addEventListener('click', toTitle);
+  function syncSound() { UI.sound.forEach(b => { b.textContent = Sound.on ? '音あり' : '音なし'; b.setAttribute('aria-pressed', String(Sound.on)); }); }
+  UI.sound.forEach(b => b.addEventListener('click', () => { Sound.unlock(); Sound.setOn(!Sound.on); Storage.set('yamanote-sanpo.sound', Sound.on); syncSound(); Sound.click(); }));
+
+  // ---------- 起動 ----------
+  let last = 0;
+  function frame(t) {
+    const dt = Math.min(0.05, last ? (t - last) / 1000 : 0.016); last = t;
+    if (!W || !H) resize();
+    if (W && H) { update(dt); render(dt); }
+    requestAnimationFrame(frame);
+  }
+  function fillLegend() {
+    document.querySelectorAll('img[data-spr]').forEach(img => { try { img.src = SPR[img.dataset.spr].toDataURL(); } catch (e) {} });
+  }
+  function boot() {
+    fillLegend();
+    Sound.setOn(Storage.get('yamanote-sanpo.sound', true) !== false); syncSound();
+    resize(); window.addEventListener('resize', resize);
+    if (window.ResizeObserver) new ResizeObserver(resize).observe(app);
+    window.addEventListener('orientationchange', () => setTimeout(resize, 300));
+    toTitle();
+    if (document.fonts && document.fonts.load) { document.fonts.load(`20px ${FONT}`).catch(() => {}); }
+    requestAnimationFrame(frame);
+  }
+
+  // テスト用（自動プレイで難易度を確かめるための入口）
+  window.YS = {
+    G, CFG, L, UPK, TOTAL_KM, segStart, startGame,
+    step(dt) { update(dt); },
+    setLane(l) { G.lane = clamp(l, -1, 1); },
+    lookahead(range) { return G.objs.filter(o => !o.done && o.z > G.dist - 0.3 && o.z < G.dist + range).map(o => ({ kind: o.kind, x: o.x, rz: o.z - G.dist, bad: o.bad })); },
+  };
+
+  boot();
+})();
+
+</script>
