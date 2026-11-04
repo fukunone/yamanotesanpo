@@ -4,17 +4,17 @@
 
   // ---------- 調整用の数値 ----------
   const CFG = {
-    speed: 14,            // 歩く速さ（ゲーム内の単位/秒）
-    targetSec: 650,       // 普通の速さだけで一周したときの秒数（約10分50秒）
-    brisk: { hp: 70, mul: 1.15 }, // 体力70以上なら早歩き（1.15倍速）→ずっと保てば約9分25秒
+    speed: 14,            // 歩く速さ（ゲーム内の単位/秒）。ずっと一定
+    targetSec: 600,       // ノーミスで一周したときの秒数（約10分）
     hpMax: 100,
-    drain: [1.35, 2.4],    // 体力の減り方（序盤→終盤 / 秒）
-    rowGap: [24, 9],     // 障害物の間隔（序盤→終盤）
-    doubleChance: [0, 0.65], // 2つ並ぶ確率
-    itemChance: [0.75, 0.42],
+    drain: [1.7, 2.9],    // 体力の減り方（序盤→終盤 / 秒）
+    rowGap: [22, 8.5],    // 障害物の間隔（序盤→終盤）
+    doubleChance: [0, 0.7], // 2つ並ぶ確率
+    itemChance: [0.64, 0.35],
     late: { from: 18, item: 0.6, drain: 1.12, double: 0.1, gap: 0.92 }, // 池袋(18駅目)から先を厳しくする
     items: { onigiri: { heal: 20, w: 20 }, water: { heal: 12, w: 35 }, snack: { heal: 7, w: 45 } },
-    obstacles: { garbage: { dmg: 10 }, rotten: { dmg: 18 }, thug: { dmg: 25 } },
+    obstacles: { garbage: { dmg: 12 }, rotten: { dmg: 20 }, thug: { dmg: 28 }, drunk: { dmg: 16 }, gull: { dmg: 14 }, robot: { dmg: 16 },
+      bike: { dmg: 22 }, walker: { dmg: 12 }, cart: { dmg: 14 }, cat: { dmg: 10 }, flyer: { dmg: 12 } },
   };
   const CAM_H = 4.2, CAM_BACK = 4, NEAR = 0.6, DRAW = 120;
   const LANE = 1.7, ROAD = 2.7, WALK = 4.3;
@@ -143,22 +143,104 @@
       g.strokeStyle = '#7a3b2a'; g.lineWidth = 4; g.beginPath(); g.moveTo(54, 60); g.lineTo(74, 58); g.stroke();
     }),
   };
-  const ITEM_H = { onigiri: 0.95, water: 1.1, snack: 1.15, garbage: 1.0, rotten: 0.95, thug: 1.85 };
+  // 人の形を描く共通の下書き（正面向き）
+  function person(g, o) {
+    g.lineJoin = 'round'; g.strokeStyle = '#1f1a1a'; g.lineWidth = 5;
+    g.fillStyle = o.legs; g.fillRect(34, 140, 18, 62); g.fillRect(58, 140, 18, 62); g.strokeRect(34, 140, 18, 62); g.strokeRect(58, 140, 18, 62);
+    g.fillStyle = '#222'; rr(g, 28, 196, 26, 12, 5); g.fill(); rr(g, 56, 196, 26, 12, 5); g.fill();
+    g.fillStyle = o.body; rr(g, 22, 62, 66, 88, 14); g.fill(); g.stroke();
+    g.fillStyle = o.skin || '#f0c8a0'; g.beginPath(); g.arc(55, 38, 22, 0, 7); g.fill(); g.stroke();
+    g.fillStyle = o.hair || '#2a2220'; g.beginPath(); g.arc(55, 32, 22, Math.PI, 0); g.fill();
+  }
+  Object.assign(SPR, {
+    drunk: mk(110, 210, (g) => {
+      person(g, { legs: '#3b3f4a', body: '#6b7080' });
+      g.fillStyle = '#fff'; g.beginPath(); g.moveTo(45, 62); g.lineTo(65, 62); g.lineTo(55, 84); g.fill();
+      g.fillStyle = '#d8343a'; g.fillRect(52, 66, 7, 40);
+      g.fillStyle = '#d8343a'; g.fillRect(30, 22, 50, 8); // 頭にネクタイ
+      g.fillStyle = '#ff8a8a'; g.beginPath(); g.arc(42, 44, 6, 0, 7); g.arc(68, 44, 6, 0, 7); g.fill();
+      g.strokeStyle = '#1f1a1a'; g.lineWidth = 3; g.beginPath(); g.moveTo(42, 37); g.lineTo(50, 37); g.moveTo(60, 37); g.lineTo(68, 37); g.stroke();
+      g.fillStyle = '#c8a46a'; g.strokeStyle = '#5b4636'; g.lineWidth = 4; rr(g, 70, 112, 32, 24, 4); g.fill(); g.stroke(); // おみやげ
+    }),
+    gull: mk(150, 90, (g) => {
+      g.fillStyle = '#f7f7f4'; g.strokeStyle = '#3a3f46'; g.lineWidth = 4; g.lineJoin = 'round';
+      g.beginPath(); g.moveTo(75, 50); g.quadraticCurveTo(40, 10, 4, 30); g.quadraticCurveTo(40, 34, 70, 62); g.closePath(); g.fill(); g.stroke();
+      g.beginPath(); g.moveTo(75, 50); g.quadraticCurveTo(110, 10, 146, 30); g.quadraticCurveTo(110, 34, 80, 62); g.closePath(); g.fill(); g.stroke();
+      g.fillStyle = '#5d6670'; g.beginPath(); g.moveTo(4, 30); g.lineTo(22, 22); g.lineTo(20, 34); g.fill(); g.beginPath(); g.moveTo(146, 30); g.lineTo(128, 22); g.lineTo(130, 34); g.fill();
+      g.fillStyle = '#ffffff'; g.beginPath(); g.ellipse(75, 58, 14, 18, 0, 0, 7); g.fill(); g.stroke();
+      g.fillStyle = '#f2b134'; g.beginPath(); g.moveTo(70, 62); g.lineTo(80, 62); g.lineTo(75, 78); g.fill();
+      g.fillStyle = '#111'; g.beginPath(); g.arc(69, 52, 3, 0, 7); g.arc(81, 52, 3, 0, 7); g.fill();
+    }),
+    robot: mk(110, 120, (g) => {
+      g.strokeStyle = '#2a3340'; g.lineWidth = 5; g.lineJoin = 'round';
+      g.fillStyle = '#f3f5f7'; rr(g, 10, 22, 90, 72, 14); g.fill(); g.stroke();
+      g.fillStyle = '#2f8fe0'; g.fillRect(12, 70, 86, 10);
+      g.fillStyle = '#1d2530'; rr(g, 26, 34, 58, 24, 8); g.fill();
+      g.fillStyle = '#7ff0ff'; g.beginPath(); g.arc(42, 46, 5, 0, 7); g.arc(68, 46, 5, 0, 7); g.fill();
+      g.fillStyle = '#333'; for (const x of [22, 55, 88]) { g.beginPath(); g.arc(x, 102, 10, 0, 7); g.fill(); }
+      g.strokeStyle = '#e8743b'; g.lineWidth = 3; g.beginPath(); g.moveTo(88, 22); g.lineTo(88, 2); g.stroke(); g.fillStyle = '#e8743b'; g.fillRect(88, 2, 16, 10);
+    }),
+    bike: mk(120, 210, (g) => {
+      g.lineJoin = 'round';
+      g.fillStyle = '#222'; rr(g, 52, 150, 16, 58, 8); g.fill(); // 前輪
+      g.strokeStyle = '#999'; g.lineWidth = 6; g.beginPath(); g.moveTo(14, 112); g.lineTo(106, 112); g.stroke(); // ハンドル
+      g.fillStyle = '#ffd23f'; g.beginPath(); g.arc(60, 132, 9, 0, 7); g.fill(); // ライト
+      g.strokeStyle = '#1f1a1a'; g.lineWidth = 5;
+      g.fillStyle = '#3fa36b'; rr(g, 30, 52, 60, 66, 14); g.fill(); g.stroke();
+      g.fillStyle = '#f0c8a0'; g.beginPath(); g.arc(60, 34, 20, 0, 7); g.fill(); g.stroke();
+      g.fillStyle = '#e84a4a'; g.beginPath(); g.arc(60, 28, 22, Math.PI, 0); g.fill(); g.stroke(); // ヘルメット
+      g.fillStyle = '#f0c8a0'; g.fillRect(16, 104, 14, 14); g.fillRect(90, 104, 14, 14);
+    }),
+    cat: mk(120, 90, (g) => {
+      g.lineJoin = 'round'; g.strokeStyle = '#3a2a1a'; g.lineWidth = 4;
+      g.fillStyle = '#f0a050'; g.beginPath(); g.ellipse(60, 62, 40, 24, 0, 0, 7); g.fill(); g.stroke();
+      g.beginPath(); g.arc(60, 36, 22, 0, 7); g.fill(); g.stroke();
+      g.beginPath(); g.moveTo(40, 26); g.lineTo(44, 4); g.lineTo(56, 18); g.fill(); g.stroke(); g.beginPath(); g.moveTo(80, 26); g.lineTo(76, 4); g.lineTo(64, 18); g.fill(); g.stroke();
+      g.strokeStyle = '#b86a2a'; g.lineWidth = 4; for (const x of [44, 60, 76]) { g.beginPath(); g.moveTo(x, 50); g.lineTo(x, 72); g.stroke(); }
+      g.fillStyle = '#2b2b2b'; g.beginPath(); g.ellipse(52, 34, 4, 6, 0, 0, 7); g.ellipse(68, 34, 4, 6, 0, 0, 7); g.fill();
+      g.fillStyle = '#e86a7a'; g.beginPath(); g.arc(60, 44, 3, 0, 7); g.fill();
+    }),
+    cart: mk(100, 130, (g) => {
+      g.strokeStyle = '#3a2a2a'; g.lineWidth = 5; g.lineJoin = 'round';
+      g.beginPath(); g.moveTo(50, 4); g.lineTo(50, 30); g.stroke(); g.beginPath(); g.moveTo(34, 6); g.lineTo(66, 6); g.stroke();
+      g.fillStyle = '#7a3a52'; rr(g, 16, 28, 68, 80, 10); g.fill(); g.stroke();
+      g.strokeStyle = 'rgba(255,220,150,.7)'; g.lineWidth = 3;
+      for (let i = 0; i < 4; i++) { g.beginPath(); g.moveTo(16, 42 + i * 18); g.lineTo(84, 42 + i * 18); g.stroke(); g.beginPath(); g.moveTo(28 + i * 16, 28); g.lineTo(28 + i * 16, 108); g.stroke(); }
+      g.fillStyle = '#222'; g.beginPath(); g.arc(26, 116, 11, 0, 7); g.arc(74, 116, 11, 0, 7); g.fill();
+    }),
+    flyer: mk(130, 210, (g) => {
+      person(g, { legs: '#2b2f3a', body: '#ffcf33' });
+      g.fillStyle = '#ff7a1a'; g.fillRect(22, 92, 66, 10);
+      g.fillStyle = '#ffffff'; g.strokeStyle = '#555'; g.lineWidth = 3;
+      for (let i = 0; i < 3; i++) { g.save(); g.translate(98, 96); g.rotate(-0.4 + i * 0.25); g.fillRect(-4, -36, 26, 34); g.strokeRect(-4, -36, 26, 34); g.restore(); }
+      g.fillStyle = '#f0c8a0'; g.beginPath(); g.arc(94, 98, 8, 0, 7); g.fill();
+    }),
+  });
+  ['#4a7bd0', '#c0504d', '#5f8f4e'].forEach((c, i) => {
+    SPR['walker' + i] = mk(110, 210, (g) => {
+      person(g, { legs: '#2f3340', body: c, hair: ['#2a2220', '#6b4a2a', '#111'][i] });
+      g.fillStyle = '#e8d8b8'; g.strokeStyle = '#1f1a1a'; g.lineWidth = 4; rr(g, 84, 104, 20, 30, 4); g.fill(); g.stroke();
+    });
+  });
+  const ITEM_H = { onigiri: 0.95, water: 1.1, snack: 1.15, garbage: 1.0, rotten: 0.95, thug: 1.85,
+    drunk: 1.8, gull: 0.75, robot: 0.95, bike: 1.9, cat: 0.6, cart: 1.05, flyer: 1.8, walker0: 1.75, walker1: 1.75, walker2: 1.75 };
+  const SPEECH = { thug: ['おい！', '#c0283a'], drunk: ['ヒック', '#b0512a'], flyer: ['どうぞ〜', '#c06a00'], bike: ['チリン', '#2b6fb0'], robot: ['とおります', '#2b6fb0'] };
 
   // ---------- ゲームの状態 ----------
   const G = {
     state: 'title', dist: 0, lane: 0, px: 0, hp: CFG.hpMax, elapsed: 0,
-    stagger: 0, invuln: 0, spd: 1, brisk: false, nextIdx: 1, ending: null, endT: 0, shake: 0, stepT: 0, beatT: 0,
+    stagger: 0, invuln: 0, nextIdx: 1, ending: null, endT: 0, shake: 0, stepT: 0, beatT: 0,
     objs: [], scen: [], gates: [], fx: [], nextRow: 0, nextScene: { '-1': 0, '1': 0 }, nextLamp: 0, time: 0,
-    hits: 0, picks: 0,
+    hits: 0, picks: 0, clean: true, runStamps: [], seen: {}, windT: 4, windWarn: 0, windDir: 0, gust: 0, trainT: 2, qLane: null, qUntil: 0, nextBridge: 0,
   };
   const camZ = () => G.dist - CAM_BACK;
   const camX = () => G.px * 0.55;
   const progress = () => clamp(G.dist / L, 0, 1);
 
   function resetWorld(startDist) {
-    G.dist = startDist; G.lane = 0; G.px = 0; G.hp = CFG.hpMax; G.elapsed = 0; G.stagger = 0; G.invuln = 0; G.spd = 1; G.brisk = false;
+    G.dist = startDist; G.lane = 0; G.px = 0; G.hp = CFG.hpMax; G.elapsed = 0; G.stagger = 0; G.invuln = 0;
     G.nextIdx = 1; G.ending = null; G.endT = 0; G.shake = 0; G.hits = 0; G.picks = 0;
+    G.clean = true; G.runStamps = []; G.seen = {}; G.windT = 4; G.windWarn = 0; G.gust = 0; G.trainT = 2; G.qLane = null; G.qUntil = 0; G.nextBridge = startDist;
     G.objs = []; G.scen = []; G.gates = []; G.fx = [];
     G.nextRow = startDist + 60; G.nextScene = { '-1': startDist - 8, '1': startDist - 8 }; G.nextLamp = Math.floor(startDist / 14) * 14;
     G.gateNext = 0;
@@ -176,28 +258,67 @@
   function nearStation(z, r) { const zz = wrapZ(z); for (let i = 0; i <= N; i++) { const s = i < N ? segStart[i] : L; if (Math.abs(zz - s) < r) return true; } return false; }
   function pickWeighted(table) { let tot = 0; for (const k in table) tot += table[k]; let r = Math.random() * tot; for (const k in table) { r -= table[k]; if (r <= 0) return k; } return Object.keys(table)[0]; }
 
+  const evOf = (si) => EVENTS[STATIONS[si].ev] || EVENTS.start;
+  const STATIC = { garbage: 1, rotten: 1, walker: 1, bike: 1 }; // 2つ並べてもよい種類（動かない／まっすぐ）
+
+  // 障害物を1つ作る（種類ごとに動き方を決める）
+  function makeObj(kind, lane, z) {
+    const o = { kind, x: lane * LANE, z, done: false, bad: true, prz: z - G.dist };
+    const side = Math.random() < 0.5 ? -1 : 1;
+    if (kind === 'thug') { o.mv = 'chase'; o.sp = 2.0; o.trig = 32; }
+    else if (kind === 'flyer') { o.mv = 'chase'; o.sp = 3.2; o.trig = 20; }
+    else if (kind === 'drunk') { o.mv = 'sway'; o.bx = o.x; o.ph = rand(0, 6); }
+    else if (kind === 'gull') { o.mv = 'cross'; o.x = side * 4.8; o.vx = -side * rand(4.8, 6); o.trig = 25; o.fly = true; }
+    else if (kind === 'robot') { o.mv = 'cross'; o.x = side * 3.3; o.vx = -side * 1.5; o.trig = 42; }
+    else if (kind === 'cart') { o.mv = 'cross'; o.x = side * 3.1; o.vx = -side * 1.15; o.trig = 38; }
+    else if (kind === 'cat') { o.mv = 'cross'; o.x = side * 4.2; o.vx = -side * rand(6.5, 8); o.trig = 15; }
+    else if (kind === 'bike') { o.mv = 'oncoming'; o.vz = 8; }
+    else if (kind === 'walker') { o.v = (Math.random() * 3) | 0; }
+    return o;
+  }
+
   function spawnRows(upto) {
     if (G.state !== 'playing') return;
     while (G.nextRow < upto) {
       const z = G.nextRow, p = clamp(z / L, 0, 1);
       if (z > L - 18) { G.nextRow = Infinity; break; }
       if (nearStation(z, 5)) { G.nextRow += 5; continue; }
-      const lanes = [-1, 0, 1].sort(() => Math.random() - 0.5);
+      const si = stationIndexAt(z), ev = evOf(si);
+      let lanes = [-1, 0, 1].sort(() => Math.random() - 0.5);
+      const inQueue = G.qLane != null && z < G.qUntil;
+      if (inQueue) lanes = lanes.filter(l => l !== G.qLane).concat([G.qLane]);
       let n = 1;
-      if (p > 0.06 && Math.random() < lerp(CFG.doubleChance[0], CFG.doubleChance[1], p) + CFG.late.double * lateAt(p)) n = 2;
-      if (p < 0.05 && Math.random() < 0.3) n = 0;
-      for (let k = 0; k < n; k++) {
-        const w = { garbage: 1, rotten: p > 0.08 ? lerp(0.3, 0.8, p) : 0, thug: (n === 1 && p > 0.22) ? lerp(0.2, 0.5, p) : 0 };
-        const kind = pickWeighted(w);
-        G.objs.push({ kind, x: lanes[k] * LANE, z, done: false, bad: true, vx: 0 });
+      if (p > 0.04 && Math.random() < lerp(CFG.doubleChance[0], CFG.doubleChance[1], p) + CFG.late.double * lateAt(p) + (ev.dbl || 0)) n = 2;
+      if (p < 0.03 && Math.random() < 0.3) n = 0;
+      if (ev.rest) n = Math.random() < 0.25 ? 1 : 0;
+      if (inQueue) n = Math.min(n, 1);
+      let special = false;
+      if (!inQueue && ev.wave && Math.random() < ev.wave) { // 人の波：2人が並んで横切る（すき間は必ずある）
+        const side = Math.random() < 0.5 ? -1 : 1, vx = -side * rand(2.2, 2.8);
+        for (const off of [0, 3.4]) { const o = makeObj('walker', 0, z); o.mv = 'cross'; o.x = side * (4.2 + off); o.vx = vx; o.trig = 34; G.objs.push(o); }
+        special = true;
+      } else if (!inQueue && ev.queue && Math.random() < ev.queue) { // 行列：同じレーンに何人も並ぶ
+        const ql = lanes[0];
+        for (let k = 0; k < 5; k++) G.objs.push(makeObj('walker', ql, z + k * 2.3));
+        G.qLane = ql; G.qUntil = z + 5 * 2.3 + 4; special = true;
       }
-      if (Math.random() < lerp(CFG.itemChance[0], CFG.itemChance[1], p) * lerp(1, CFG.late.item, lateAt(p))) {
+      if (!special) {
+        for (let k = 0; k < n; k++) {
+          const w = { garbage: 1, rotten: si >= KINDS.rotten.from ? lerp(0.4, 0.8, p) : 0, thug: si >= KINDS.thug.from ? lerp(0.25, 0.5, p) : 0,
+            drunk: si >= KINDS.drunk.from ? 0.12 : 0, bike: si >= KINDS.bike.from ? 0.1 : 0 };
+          for (const kk in ev.kinds) w[kk] = (w[kk] || 0) + ev.kinds[kk];
+          if (n === 2) for (const kk in w) if (!STATIC[kk]) w[kk] = 0;
+          G.objs.push(makeObj(pickWeighted(w), lanes[k], z));
+        }
+      }
+      const ic = lerp(CFG.itemChance[0], CFG.itemChance[1], p) * lerp(1, CFG.late.item, lateAt(p)) * (ev.item || 1) * (ev.rest ? 2 : 1);
+      if (Math.random() < ic) {
         const kind = pickWeighted({ onigiri: CFG.items.onigiri.w, water: CFG.items.water.w, snack: CFG.items.snack.w });
-        const half = Math.random() < 0.5;
-        const lane = half ? pick([-1, 0, 1]) : lanes[n];
+        const half = Math.random() < 0.5 || special;
+        const lane = half ? pick([-1, 0, 1]) : lanes[Math.min(n, 2)];
         G.objs.push({ kind, x: lane * LANE, z: z + (half ? rowGapAt(p) * 0.5 : 0), done: false, bad: false });
       }
-      G.nextRow += rowGapAt(p) * rand(0.85, 1.15);
+      G.nextRow += rowGapAt(p) * rand(0.85, 1.15) * (special ? 1.3 : 1);
     }
   }
 
@@ -206,7 +327,8 @@
       const key = String(side);
       while (G.nextScene[key] < upto) {
         const z = G.nextScene[key], th = themeAt(z);
-        if (th.water && side === 1) { G.nextScene[key] += 6; continue; }
+        if (th.water && side === 1) { if (Math.random() < 0.35) G.scen.push({ t: 'ship', x: rand(11, 22), z: z + rand(0, 6), c: pick([[240, 240, 235], [220, 90, 70], [70, 120, 190]]) }); G.nextScene[key] += 6; continue; }
+        if (th.track && side === -1) { G.nextScene[key] += 6; continue; }
         let kind = pick(th.kinds);
         if (kind === 'tree' || Math.random() < th.trees) {
           G.scen.push({ t: 'tree', x: side * (WALK + rand(0.9, 2.6)), z, h: rand(3.2, 5), c: th.treeC, fl: th.flowersC, seed: (Math.random() * 1e9) | 0 });
@@ -237,6 +359,11 @@
       for (const side of [-1, 1]) G.scen.push({ t: 'lamp', x: side * (WALK - 0.35), z: G.nextLamp + (side > 0 ? 7 : 0) });
       G.nextLamp += 14;
     }
+    // ガード下の高架
+    while (G.nextBridge < upto) {
+      if (themeAt(G.nextBridge).bridges && !nearStation(G.nextBridge, 8)) { G.scen.push({ t: 'bridge', z: G.nextBridge, seed: (Math.random() * 1e9) | 0 }); G.nextBridge += rand(24, 34); }
+      else G.nextBridge += 8;
+    }
     // 駅の門
     while (true) {
       const lap = Math.floor(G.gateNext / N), i = G.gateNext % N;
@@ -252,7 +379,7 @@
     const cz = camZ();
     spawnScenery(cz + DRAW + 15);
     spawnRows(G.dist + 110);
-    G.scen = G.scen.filter(s => (s.z1 != null ? s.z1 : s.z) > cz - 2);
+    G.scen = G.scen.filter(s => (s.z1 != null ? s.z1 : s.z) > cz - 2 && !(s.t === 'train' && s.z0 > cz + DRAW + 60));
     G.objs = G.objs.filter(o => o.z > cz - 1 && !(o.done && o.gone));
     G.gates = G.gates.filter(g => g.z > cz - 2);
   }
@@ -262,6 +389,7 @@
     time: document.getElementById('hudTime'), hp: document.getElementById('hpFill'), hpBox: document.getElementById('hpBox'),
     next: document.getElementById('nextName'), nextDist: document.getElementById('nextDist'), count: document.getElementById('stCount'),
     map: document.getElementById('loopMap'), flash: document.getElementById('flash'), banner: document.getElementById('banner'),
+    toast: document.getElementById('toast'), stampMark: document.getElementById('stampMark'),
   };
   const mapCtx = HUD.map.getContext('2d');
   let lastHud = {};
@@ -281,14 +409,26 @@
         <div class="sign-name">${st.name}</div>
         <div class="sign-band"><span>← ${prev.name}</span><span class="sign-roma">${st.roma}</span><span>${next.name} →</span></div>
       </div>
-      <div class="sign-sub">${opts.sub || th.label}</div>`;
+      <div class="sign-sub">${opts.sub || th.label}</div>
+      ${opts.note ? `<div class="sign-note">${opts.note}</div>` : ''}
+      ${opts.stamp ? `<div class="stamp-get"><span class="stamp" style="--ink:${stampInk(opts.stampIdx)}">${STATIONS[opts.stampIdx].name}</span><b>スタンプGET！</b></div>` : ''}`;
     HUD.banner.classList.remove('show'); void HUD.banner.offsetWidth; HUD.banner.classList.add('show');
   }
 
+  const INKS = ['#c8332f', '#2f6fb8', '#2f8a4e', '#8a3fa0', '#c06a10'];
+  function stampInk(i) { return INKS[i % INKS.length]; }
   function passStation(i) {
-    if (i >= N) { startEnding('clear'); return; }
+    if (i >= N) { if (G.clean) G.runStamps.push(0); startEnding('clear'); return; }
     Sound.station();
-    showBanner(i, { sub: `${i}駅目　${THEMES[STATIONS[i].theme].label}` });
+    const got = G.clean; // 前の駅からノーミスならスタンプ
+    if (got) { G.runStamps.push(i); setTimeout(() => Sound.stamp(), 350); }
+    G.clean = true;
+    showBanner(i, { sub: `${i}駅目　${THEMES[STATIONS[i].theme].label}`, note: EVENTS[STATIONS[i].ev].note, stamp: got, stampIdx: i });
+  }
+  let toastTimer = 0;
+  function showToast(html) {
+    HUD.toast.innerHTML = html; HUD.toast.classList.remove('show'); void HUD.toast.offsetWidth; HUD.toast.classList.add('show');
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => HUD.toast.classList.remove('show'), 2600);
   }
 
   function startEnding(kind) {
@@ -307,7 +447,7 @@
     if (o.bad) {
       if (G.invuln > 0) return;
       const d = CFG.obstacles[o.kind].dmg;
-      G.hp -= d; G.hits++; G.stagger = 2.0; G.invuln = 1.0; G.shake = 0.3;
+      G.hp -= d; G.hits++; G.clean = false; G.stagger = 2.0; G.invuln = 1.0; G.shake = 0.3;
       Sound.hit(o.kind); addFloat(`-${d}`, '#ff5a5a');
       HUD.flash.classList.remove('on'); void HUD.flash.offsetWidth; HUD.flash.classList.add('on');
       if (navigator.vibrate) try { navigator.vibrate(60); } catch (e) {}
@@ -319,8 +459,18 @@
     }
   }
 
+  function updateTrains(dt) {
+    for (const t of G.scen) if (t.t === 'train') { t.z0 -= t.v * dt; t.z1 -= t.v * dt; }
+    G.trainT -= dt;
+    if (G.trainT <= 0) {
+      G.trainT = rand(5, 8);
+      const z = G.dist + 120;
+      if (themeAt(z).track || themeAt(G.dist + 40).track) { G.scen.push({ t: 'train', z0: z, z1: z + 44, v: 24, x0: -6.0, x1: -8.6, h: 3.6 }); if (themeAt(G.dist).track) Sound.train(); }
+    }
+  }
   function update(dt) {
     G.time += dt;
+    if (G.state !== 'paused') updateTrains(dt);
     if (G.state === 'paused') return;
     if (G.state === 'title') {
       G.dist += 6 * dt; G.px += (0 - G.px) * Math.min(1, dt * 5);
@@ -336,23 +486,36 @@
       G.elapsed += dt;
       if (G.stagger > 0) G.stagger -= dt;
       if (G.invuln > 0) G.invuln -= dt;
-      G.brisk = G.hp >= CFG.brisk.hp;
-      G.spd += ((G.brisk ? CFG.brisk.mul : 1) - G.spd) * Math.min(1, dt * 3);
-      const sm = (G.stagger > 0 ? 1 - 0.85 * Math.min(1, G.stagger / 1.2) : 1) * G.spd;
+      const sm = G.stagger > 0 ? 1 - 0.85 * Math.min(1, G.stagger / 1.2) : 1;
       G.dist += CFG.speed * sm * dt;
       G.hp -= lerp(CFG.drain[0], CFG.drain[1], p) * lerp(1, CFG.late.drain, lateAt(p)) * dt;
       // 足音・心音
       G.stepT -= dt * sm; if (G.stepT <= 0) { G.stepT = 0.42; Sound.step(); }
       if (G.hp < 25) { G.beatT -= dt; if (G.beatT <= 0) { G.beatT = 0.9; Sound.beat(); } }
       while (G.nextIdx <= N && G.dist >= (G.nextIdx < N ? segStart[G.nextIdx] : L)) { passStation(G.nextIdx); G.nextIdx++; }
-      // 当たり判定
+      // ビル風（新宿）：予告のあと横に押される
+      const ev = evOf(stationIndexAt(G.dist));
+      if (ev.wind && !nearStation(G.dist, 6)) {
+        if (G.windWarn > 0) { G.windWarn -= dt; if (G.windWarn <= 0) { G.lane = clamp(G.lane + G.windDir, -1, 1); G.gust = 0.6; Sound.wind(); } }
+        else { G.windT -= dt; if (G.windT <= 0) { G.windT = rand(3.2, 5.2); G.windDir = G.lane === -1 ? 1 : G.lane === 1 ? -1 : pick([-1, 1]); G.windWarn = 1.0; } }
+      } else G.windWarn = 0;
+      if (G.gust > 0) G.gust -= dt;
+      // 障害物の動き と 当たり判定
       for (const o of G.objs) {
         if (o.done) continue;
-        if (o.kind === 'thug') {
-          const rz = o.z - G.dist;
-          if (rz < 32 && rz > 1) { const tx = G.lane * LANE; o.x += clamp(tx - o.x, -2.0 * dt, 2.0 * dt); }
+        const rz = o.z - G.dist;
+        if (o.mv === 'chase') { if (rz < o.trig && rz > 1) o.x += clamp(G.lane * LANE - o.x, -o.sp * dt, o.sp * dt); }
+        else if (o.mv === 'cross') { if (rz < o.trig) o.x += o.vx * dt; }
+        else if (o.mv === 'sway') { o.x = clamp(o.bx + Math.sin(G.time * 1.7 + o.ph) * 1.9, -LANE - 0.2, LANE + 0.2); }
+        else if (o.mv === 'oncoming') { if (rz < 60) { o.z -= o.vz * dt; if (!o.rang && rz < 45) { o.rang = true; Sound.bell(); } } }
+        if (o.bad && !G.seen[o.kind] && rz < 55 && Math.abs(o.x) < 5) {
+          G.seen[o.kind] = true;
+          if (o.kind !== 'garbage') showToast(`<b>はじめて登場</b>${KINDS[o.kind].name}<small>${KINDS[o.kind].tip}</small>`);
         }
-        if (Math.abs(o.z - G.dist) < 0.6 && Math.abs(o.x - G.px) < (o.bad ? 0.95 : 1.1)) hitObj(o);
+        const rz2 = o.z - G.dist;
+        const crossed = (o.prz > 0.6 && rz2 < -0.6);
+        if ((Math.abs(rz2) < 0.6 || crossed) && Math.abs(o.x - G.px) < (o.bad ? 0.95 : 1.1)) hitObj(o);
+        o.prz = rz2;
       }
       if (G.hp <= 0) { G.hp = 0; startEnding('over'); }
     }
@@ -410,6 +573,15 @@
       if (th.water) {
         ctx.fillStyle = shadeC([70, 130, 175], fr, alt * (1 + 0.08 * Math.sin(z * 0.7 + G.time * 2)));
         quad(xs(WALK + 0.4, sa), ya, W, ya, W, yb, xs(WALK + 0.4, sb), yb);
+      }
+      if (th.track) {
+        ctx.fillStyle = shadeC([128, 120, 108], fr, alt); quad(0, ya, xs(-WALK - 0.4, sa), ya, xs(-WALK - 0.4, sb), yb, 0, yb);
+        ctx.fillStyle = shadeC([90, 80, 70], fr, 1);
+        if (Math.floor(z / STRIP) % 1 === 0) for (const cx of [-7.3, -10.0]) quad(xs(cx - 1.0, sa), ya, xs(cx + 1.0, sa), ya, xs(cx + 1.0, sa), ya - Math.max(1, 0.12 * sa), xs(cx - 1.0, sa), ya - Math.max(1, 0.12 * sa));
+        ctx.fillStyle = shadeC([200, 200, 205], fr, 1);
+        for (const cx of [-7.3, -10.0]) for (const r of [-0.55, 0.55]) quad(xs(cx + r - 0.05, sa), ya, xs(cx + r + 0.05, sa), ya, xs(cx + r + 0.05, sb), yb, xs(cx + r - 0.05, sb), yb);
+        ctx.fillStyle = shadeC([110, 115, 110], fr, 1); // 柵
+        quad(xs(-WALK - 0.35, sa), ya, xs(-WALK - 0.25, sa), ya, xs(-WALK - 0.25, sb), yb, xs(-WALK - 0.35, sb), yb);
       }
       ctx.fillStyle = shadeC(th.walkC, fr, alt);
       quad(xs(-WALK, sa), ya, xs(WALK, sa), ya, xs(WALK, sb), yb, xs(-WALK, sb), yb);
@@ -618,25 +790,67 @@
     ctx.globalAlpha = 1;
   }
 
+  function drawBridge(b) {
+    const rz = b.z - camZ(); if (rz < NEAR + 0.2 || rz > DRAW) return;
+    const s = F / rz, brick = [120, 62, 48];
+    ctx.fillStyle = shadeC(brick, rz, 0.85);
+    for (const px of [-ROAD - 0.6, ROAD + 0.6]) ctx.fillRect(xs(px, s) - 0.45 * s, ys(5.2, s), 0.9 * s, 5.2 * s);
+    ctx.fillStyle = shadeC(brick, rz, 1); ctx.fillRect(xs(-30, s), ys(6.8, s), xs(30, s) - xs(-30, s), 1.6 * s);
+    ctx.fillStyle = shadeC([70, 40, 32], rz, 1); ctx.fillRect(xs(-30, s), ys(5.35, s), xs(30, s) - xs(-30, s), 0.18 * s);
+    ctx.fillStyle = shadeC([90, 95, 100], rz, 1); ctx.fillRect(xs(-30, s), ys(7.2, s), xs(30, s) - xs(-30, s), 0.4 * s);
+    // 上を走る電車
+    const tx = ((G.time * 14 + (b.seed % 100)) % 70) - 35;
+    ctx.fillStyle = shadeC([215, 220, 225], rz, 1); ctx.fillRect(xs(tx, s), ys(9.6, s), 16 * s, 2.4 * s);
+    ctx.fillStyle = shadeC([140, 198, 63], rz, 1); ctx.fillRect(xs(tx, s), ys(8.3, s), 16 * s, 0.35 * s);
+    ctx.fillStyle = night > 0.3 ? 'rgba(255,230,150,.9)' : shadeC([60, 70, 85], rz, 1);
+    for (let k = 0; k < 7; k++) ctx.fillRect(xs(tx + 0.8 + k * 2.2, s), ys(9.3, s), 1.2 * s, 0.7 * s);
+  }
+  function drawShip(sh) {
+    const rz = sh.z - camZ(); if (rz < NEAR || rz > DRAW) return;
+    const s = F / rz, x = xs(sh.x, s), y = ys(0, s);
+    ctx.fillStyle = shadeC(sh.c, rz, 1); ctx.beginPath(); ctx.moveTo(x - 2.2 * s, y - 0.9 * s); ctx.lineTo(x + 2.2 * s, y - 0.9 * s); ctx.lineTo(x + 1.6 * s, y); ctx.lineTo(x - 1.6 * s, y); ctx.fill();
+    ctx.fillStyle = shadeC([245, 245, 240], rz, 1); ctx.fillRect(x - 0.9 * s, y - 1.8 * s, 1.6 * s, 0.9 * s);
+    ctx.fillStyle = shadeC([60, 70, 90], rz, 1); ctx.fillRect(x - 0.7 * s, y - 1.6 * s, 1.2 * s, 0.3 * s);
+  }
+  function drawTrain(t) {
+    const cz = camZ(), za = Math.max(t.z0, cz + NEAR), zb = t.z1;
+    if (zb <= cz + NEAR || za - cz > DRAW) return;
+    const ra = za - cz, rb = zb - cz, sa = F / ra, sb = F / rb;
+    const body = [212, 216, 222];
+    const face = (y0, y1, c) => { ctx.fillStyle = c; quad(xs(t.x0, sa), ys(y0, sa), xs(t.x0, sa), ys(y1, sa), xs(t.x0, sb), ys(y1, sb), xs(t.x0, sb), ys(y0, sb)); };
+    face(0.4, t.h, shadeC(body, ra, 0.85));
+    face(1.0, 1.35, shadeC([140, 198, 63], ra, 1));
+    face(1.7, 2.8, night > 0.3 ? css(mix([255, 230, 150], fogC, fogAt(ra) * 0.5)) : shadeC([70, 85, 100], ra, 1));
+    for (let z = t.z0 + 1; z < t.z1; z += 11) { if (z < cz + NEAR) continue; const s = F / (z - cz); ctx.fillStyle = shadeC([90, 95, 100], z - cz, 1); ctx.fillRect(xs(t.x0, s) - 0.05 * s, ys(t.h, s), 0.1 * s, (t.h - 0.4) * s); }
+    if (t.z0 >= cz + NEAR) {
+      ctx.fillStyle = shadeC(body, ra, 1); ctx.fillRect(xs(t.x1, sa), ys(t.h, sa), xs(t.x0, sa) - xs(t.x1, sa), (t.h - 0.4) * sa);
+      ctx.fillStyle = shadeC([40, 50, 60], ra, 1); ctx.fillRect(xs(t.x1 + 0.3, sa), ys(3.1, sa), xs(t.x0 - 0.3, sa) - xs(t.x1 + 0.3, sa), 1.1 * sa);
+      ctx.fillStyle = shadeC([140, 198, 63], ra, 1); ctx.fillRect(xs(t.x1, sa), ys(1.35, sa), xs(t.x0, sa) - xs(t.x1, sa), 0.35 * sa);
+      ctx.fillStyle = night > 0.2 ? '#fff6c8' : '#e8e8e0'; for (const lx of [t.x1 + 0.5, t.x0 - 0.5]) { ctx.beginPath(); ctx.arc(xs(lx, sa), ys(0.9, sa), 0.16 * sa, 0, 7); ctx.fill(); }
+    }
+  }
+
   function drawObj(o) {
     if (o.gone) return;
     const rz = o.z - camZ(); if (rz < NEAR) return;
-    const s = F / rz, sp = SPR[o.kind];
+    const sk = o.kind === 'walker' ? 'walker' + o.v : o.kind;
+    const s = F / rz, sp = SPR[sk];
     const alpha = 1 - clamp((rz - 90) / 25, 0, 1);
     if (alpha <= 0) return;
-    const hgt = ITEM_H[o.kind] * s, wid = hgt * sp.width / sp.height;
-    const bob = o.bad ? 0 : (0.25 + Math.sin(G.time * 5 + o.z) * 0.1);
+    const hgt = ITEM_H[sk] * s, wid = hgt * sp.width / sp.height;
+    const bob = o.fly ? 1.0 + Math.sin(G.time * 8 + o.z) * 0.15 : o.bad ? 0 : (0.25 + Math.sin(G.time * 5 + o.z) * 0.1);
     const x = xs(o.x, s), yb = ys(0, s);
     ctx.globalAlpha = alpha * (o.done && o.bad ? 0.5 : 1);
     ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(x, yb, wid * 0.5, wid * 0.14, 0, 0, 7); ctx.fill();
     if (!o.bad) { ctx.fillStyle = `rgba(255,250,200,${0.25 + 0.15 * Math.sin(G.time * 6 + o.z)})`; ctx.beginPath(); ctx.arc(x, yb - hgt * 0.5 - bob * s, hgt * 0.62, 0, 7); ctx.fill(); }
     ctx.drawImage(sp, x - wid / 2, yb - hgt - bob * s, wid, hgt);
-    if (o.kind === 'thug' && rz < 26 && !o.done) {
-      const fs = Math.max(10, 0.32 * s);
+    const sp2 = SPEECH[o.kind];
+    if (sp2 && rz < 26 && rz > 2 && !o.done) {
+      const fs = Math.max(10, 0.32 * s), tw = sp2[0].length * 0.55 + 0.6;
       ctx.font = `${fs | 0}px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       const bx = x + wid * 0.55, by = yb - hgt * 1.05;
-      ctx.fillStyle = '#fff'; rr(ctx, bx - fs * 1.4, by - fs * 0.75, fs * 2.8, fs * 1.5, fs * 0.4); ctx.fill();
-      ctx.fillStyle = '#c0283a'; ctx.fillText('おい！', bx, by);
+      ctx.fillStyle = '#fff'; rr(ctx, bx - fs * tw, by - fs * 0.75, fs * tw * 2, fs * 1.5, fs * 0.4); ctx.fill();
+      ctx.fillStyle = sp2[1]; ctx.fillText(sp2[0], bx, by);
     }
     ctx.globalAlpha = 1;
   }
@@ -710,12 +924,12 @@
 
   function updateHud() {
     if (G.state !== 'playing' && G.state !== 'paused') return;
-    setText(HUD.time, fmtTime(G.elapsed));
+    setText(HUD.time, `${(Math.min(G.dist, L) / UPK).toFixed(1)}km`);
     const hp = clamp(G.hp / CFG.hpMax, 0, 1);
     HUD.hp.style.transform = `scaleX(${hp})`;
     HUD.hp.style.background = hp > 0.5 ? '#7ccf4a' : hp > 0.25 ? '#f2c335' : '#ef4b4b';
     HUD.hpBox.classList.toggle('low', hp < 0.25);
-    HUD.hpBox.classList.toggle('brisk', G.brisk && !G.ending);
+    HUD.stampMark.classList.toggle('lost', !G.clean);
     const ni = Math.min(G.nextIdx, N);
     const nz = G.nextIdx < N ? segStart[G.nextIdx] : L;
     setText(HUD.next, G.nextIdx < N ? STATIONS[ni].name : '東京（ゴール）');
@@ -733,15 +947,25 @@
     drawSky(p);
     drawGround();
     const list = [];
-    for (const s of G.scen) list.push([s.t === 'bldg' ? s.z0 : s.z, s]);
+    for (const s of G.scen) list.push([s.z0 != null ? s.z0 : s.z, s]);
     for (const g of G.gates) list.push([g.z, g]);
     for (const o of G.objs) list.push([o.z, o]);
     list.sort((a, b) => b[0] - a[0]);
     for (const [, it] of list) {
       if (it.t === 'bldg') drawBldg(it); else if (it.t === 'tree') drawTree(it); else if (it.t === 'lamp') drawLamp(it);
+      else if (it.t === 'bridge') drawBridge(it); else if (it.t === 'ship') drawShip(it); else if (it.t === 'train') drawTrain(it);
       else if (it.kind) drawObj(it); else drawGate(it);
     }
     drawPlayer();
+    if (G.windWarn > 0 || G.gust > 0) {
+      const d = G.windDir, a = G.gust > 0 ? G.gust / 0.6 : 0.6 + 0.4 * Math.sin(G.time * 18);
+      ctx.globalAlpha = clamp(a, 0, 1);
+      ctx.font = `${Math.round(W * 0.09)}px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      const label = d > 0 ? 'ビル風 →→' : '←← ビル風';
+      ctx.lineWidth = 6; ctx.strokeStyle = 'rgba(20,26,46,.7)'; ctx.strokeText(label, W / 2, H * 0.52); ctx.fillStyle = '#e8f6ff'; ctx.fillText(label, W / 2, H * 0.52);
+      if (G.gust > 0) { ctx.fillStyle = 'rgba(255,255,255,.6)'; for (let k = 0; k < 14; k++) { const yy = hash(k, 3, 9) * H; const xx = ((hash(k, 5, 1) * W + (0.6 - G.gust) * W * 3 * d) % W + W) % W; ctx.fillRect(xx, yy, W * 0.25, 2); } }
+      ctx.globalAlpha = 1;
+    }
     ctx.restore();
     drawFx(dt);
     updateHud();
@@ -751,15 +975,28 @@
   const UI = {
     title: document.getElementById('scrTitle'), pause: document.getElementById('scrPause'), result: document.getElementById('scrResult'),
     hud: document.getElementById('hud'), best: document.getElementById('bestBox'), resBody: document.getElementById('resBody'),
-    sound: document.querySelectorAll('.btn-sound'),
+    sound: document.querySelectorAll('.btn-sound'), stamps: document.getElementById('scrStamps'), stampGrid: document.getElementById('stampGrid'),
+    stampCount: document.getElementById('stampCount'),
   };
-  function show(el) { for (const k of ['title', 'pause', 'result']) UI[k].hidden = UI[k] !== el; }
+  let backTo = null;
+  function show(el) { for (const k of ['title', 'pause', 'result', 'stamps']) UI[k].hidden = UI[k] !== el; }
+  function stampHtml(i, got) {
+    const nm = STATIONS[i].name, fs = nm.length <= 2 ? 15 : nm.length <= 3 ? 12 : nm.length <= 4 ? 10 : 8;
+    return `<div class="stamp-cell${got ? ' got' : ''}"><span class="stamp" style="--ink:${got ? stampInk(i) : '#b9bcc4'};font-size:${fs}px">${nm}</span></div>`;
+  }
+  function openStamps() {
+    const r = Records.load(), set = new Set(r.stamps);
+    UI.stampGrid.innerHTML = STATIONS.map((_, i) => stampHtml(i, set.has(i))).join('');
+    UI.stampCount.textContent = `${set.size} / ${N}`;
+    backTo = G.state === 'result' ? UI.result : UI.title; show(UI.stamps);
+  }
 
   function renderBest() {
     const r = Records.load();
     UI.best.innerHTML = `
       <div class="best-row"><span>いちばん遠く</span><b>${r.bestKm > 0 ? `${r.bestStationName}（${r.bestStations}駅・${r.bestKm.toFixed(1)}km）` : 'まだ記録なし'}</b></div>
-      <div class="best-row"><span>一周タイム</span><b>${r.bestTimeMs != null ? fmtTime(r.bestTimeMs / 1000) : '--:--'}</b></div>`;
+      <div class="best-row"><span>一周達成</span><b>${r.clears > 0 ? `${r.clears}回（最速 ${fmtTime(r.bestTimeMs / 1000)}）` : 'まだ'}</b></div>
+      <div class="best-row"><span>駅スタンプ</span><b>${r.stamps.length} / ${N}</b></div>`;
   }
 
   function startGame() {
@@ -767,7 +1004,7 @@
     G.state = 'playing'; resetWorld(0); G.gateNext = 0; G.gates = []; spawn();
     lastHud = {};
     UI.hud.hidden = false; show(null);
-    showBanner(0, { sub: '一周スタート！ 外回りで歩こう' });
+    showBanner(0, { sub: '一周スタート！ 外回りで歩こう', note: '駅までノーミスで歩くと駅スタンプ' });
     Sound.station();
   }
   function toTitle() {
@@ -783,21 +1020,25 @@
     const stations = cleared ? N : G.nextIdx - 1;
     const km = cleared ? TOTAL_KM : G.dist / UPK;
     const run = { cleared, stations, stationName: cleared ? '一周' : STATIONS[stations].name, km: Math.round(km * 10) / 10,
-      timeMs: Math.round(G.elapsed * 1000), hits: G.hits, picks: G.picks, date: new Date().toISOString(), version: 1 };
+      timeMs: Math.round(G.elapsed * 1000), hits: G.hits, picks: G.picks, stamps: G.runStamps.slice(), date: new Date().toISOString(), version: 2 };
     const res = Records.submit(run);
     G.state = 'result';
     const nextName = STATIONS[Math.min(stations + 1, N - 1)].name;
     const rec = res.records;
+    const stampLine = `<div class="res-stamps">${run.stamps.length ? run.stamps.map(i => `<span class="stamp${res.newStamps.includes(i) ? ' new' : ''}" style="--ink:${stampInk(i)}">${STATIONS[i].name}</span>`).join('') : '<span class="res-sub">今回のスタンプはなし</span>'}</div>
+      <div class="res-sub">駅スタンプ ${run.stamps.length}個（新しく${res.newStamps.length}個）・スタンプ帳 ${rec.stamps.length}/${N}</div>`;
     UI.resBody.innerHTML = cleared ? `
-      <div class="res-eyebrow">山手線 一周達成</div>
-      <div class="res-big">${fmtTime(run.timeMs / 1000)}</div>
-      ${res.newTime ? '<div class="res-new">自己ベスト更新！</div>' : `<div class="res-sub">自己ベスト ${fmtTime(rec.bestTimeMs / 1000)}</div>`}
-      <div class="res-stats"><span>${N}駅・${TOTAL_KM.toFixed(1)}km</span><span>ぶつかった回数 ${run.hits}</span></div>` : `
+      <div class="res-eyebrow">おつかれさま！</div>
+      <div class="res-big">山手線一周</div>
+      ${rec.clears === 1 ? '<div class="res-new">はじめての一周達成！</div>' : `<div class="res-sub">一周達成 ${rec.clears}回目</div>`}
+      <div class="res-stats"><span>${N}駅・${TOTAL_KM.toFixed(1)}km</span><span>一周タイム ${fmtTime(run.timeMs / 1000)}${res.newTime && rec.clears > 1 ? '（最速！）' : ''}</span></div>
+      ${stampLine}` : `
       <div class="res-eyebrow">${nextName}の手前でダウン…</div>
       <div class="res-big">${run.stationName}<small>まで</small></div>
-      <div class="res-stats"><span>${stations}駅</span><span>${run.km.toFixed(1)}km</span><span>${fmtTime(run.timeMs / 1000)}</span></div>
-      ${res.newDistance ? '<div class="res-new">自己ベスト更新！</div>' : `<div class="res-sub">自己ベスト ${rec.bestStationName}（${rec.bestStations}駅・${rec.bestKm.toFixed(1)}km）</div>`}`;
-    UI.resBody.insertAdjacentHTML('beforeend', '<div class="res-note">みんなとのランキングはアプリ版で登場予定</div>');
+      <div class="res-stats"><span>${stations}駅</span><span>${run.km.toFixed(1)}km</span></div>
+      ${res.newDistance ? '<div class="res-new">自己ベスト更新！</div>' : `<div class="res-sub">自己ベスト ${rec.bestStationName}（${rec.bestStations}駅・${rec.bestKm.toFixed(1)}km）</div>`}
+      ${stampLine}`;
+    UI.resBody.insertAdjacentHTML('beforeend', '<div class="res-note">みんなとの記録くらべはアプリ版で登場予定</div>');
     show(UI.result);
   }
 
@@ -840,6 +1081,8 @@
   document.getElementById('btnQuit').addEventListener('click', toTitle);
   document.getElementById('btnRetry').addEventListener('click', startGame);
   document.getElementById('btnTitle').addEventListener('click', toTitle);
+  document.querySelectorAll('.btn-stamps').forEach(b => b.addEventListener('click', () => { Sound.click(); openStamps(); }));
+  document.getElementById('btnStampsClose').addEventListener('click', () => { Sound.click(); if (backTo === UI.title) renderBest(); show(backTo || UI.title); });
   function syncSound() { UI.sound.forEach(b => { b.textContent = Sound.on ? '音あり' : '音なし'; b.setAttribute('aria-pressed', String(Sound.on)); }); }
   UI.sound.forEach(b => b.addEventListener('click', () => { Sound.unlock(); Sound.setOn(!Sound.on); Storage.set('yamanote-sanpo.sound', Sound.on); syncSound(); Sound.click(); }));
 

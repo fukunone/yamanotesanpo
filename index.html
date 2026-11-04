@@ -23,17 +23,18 @@
       <div class="hud-top">
         <button id="btnPause" class="hud-btn" aria-label="一時停止">II</button>
         <div class="hud-mid">
-          <div id="hpBox" class="hp"><div class="hp-head"><span class="hp-label">たいりょく</span><span class="hp-brisk">早歩き中</span></div><div class="hp-bar"><i id="hpFill"></i><b class="hp-mark"></b></div></div>
-          <div class="next"><span class="next-tag">つぎは</span><b id="nextName">有楽町</b><span id="nextDist"></span></div>
+          <div id="hpBox" class="hp"><span class="hp-label">たいりょく</span><div class="hp-bar"><i id="hpFill"></i></div></div>
+          <div class="next"><span class="next-tag">つぎは</span><b id="nextName">有楽町</b><span id="nextDist"></span><span id="stampMark" class="stamp-mark" title="ノーミスで駅に着くとスタンプ">印</span></div>
         </div>
         <div class="hud-right">
           <canvas id="loopMap" width="120" height="120" aria-label="一周のどこにいるか"></canvas>
-          <div class="hud-meta"><span id="stCount">0/30駅</span><span id="hudTime">0:00.0</span></div>
+          <div class="hud-meta"><span id="stCount">0/30駅</span><span id="hudTime">0.0km</span></div>
         </div>
       </div>
     </div>
     <div id="banner" aria-live="polite"></div>
     <div id="flash"></div>
+    <div id="toast" aria-live="polite"></div>
 
     <section id="scrTitle" class="screen" hidden>
       <div class="sign title-sign">
@@ -49,20 +50,21 @@
         <h2>あそびかた</h2>
         <ol class="howto">
           <li>画面の左右をタップ（またはスワイプ）でレーンを移動</li>
-          <li>体力は歩くだけで減る。食べ物と水で回復。体力70以上なら早歩きでタイムが縮む</li>
-          <li>東京から外回りで30駅、一周したらゴール</li>
+          <li>体力は歩くだけで減る。食べ物と水で回復</li>
+          <li>東京から外回りで30駅、一周できたらゴール。駅までノーミスなら駅スタンプ</li>
         </ol>
         <div class="legend">
           <div><img data-spr="onigiri" alt=""><span class="good">おにぎり +20</span></div>
           <div><img data-spr="water" alt=""><span class="good">水 +12</span></div>
           <div><img data-spr="snack" alt=""><span class="good">おやつ +7</span></div>
-          <div><img data-spr="garbage" alt=""><span class="bad">ごみ −10</span></div>
-          <div><img data-spr="rotten" alt=""><span class="bad">腐った食べ物 −18</span></div>
-          <div><img data-spr="thug" alt=""><span class="bad">不良 −25</span></div>
+          <div><img data-spr="garbage" alt=""><span class="bad">ごみ −12</span></div>
+          <div><img data-spr="rotten" alt=""><span class="bad">腐った食べ物 −20</span></div>
+          <div><img data-spr="thug" alt=""><span class="bad">不良 −28</span></div>
         </div>
+        <p class="legend-note">ほかにも、街ごとにいろいろ出てきます</p>
       </div>
       <button id="btnStart" class="btn-main">歩きはじめる</button>
-      <div class="btn-row"><button class="btn-sub btn-sound" aria-pressed="true">音あり</button></div>
+      <div class="btn-row"><button class="btn-sub btn-stamps">スタンプ帳</button><button class="btn-sub btn-sound" aria-pressed="true">音あり</button></div>
     </section>
 
     <section id="scrPause" class="screen" hidden>
@@ -74,7 +76,16 @@
     <section id="scrResult" class="screen" hidden>
       <div class="panel result-card" id="resBody"></div>
       <button id="btnRetry" class="btn-main">もう一度歩く</button>
-      <div class="btn-row"><button id="btnTitle" class="btn-sub">タイトルへ</button></div>
+      <div class="btn-row"><button id="btnTitle" class="btn-sub">タイトルへ</button><button class="btn-sub btn-stamps">スタンプ帳</button></div>
+    </section>
+
+    <section id="scrStamps" class="screen" hidden>
+      <div class="panel stamp-book">
+        <h2>駅スタンプ帳 <span id="stampCount"></span></h2>
+        <p class="stamp-help">前の駅からノーミスで駅に着くと、その駅のスタンプがもらえます。東京のスタンプは、最後の神田→東京をノーミスでゴールしたときだけ。</p>
+        <div id="stampGrid" class="stamp-grid"></div>
+      </div>
+      <button id="btnStampsClose" class="btn-main">とじる</button>
     </section>
   </div>
 </div>
