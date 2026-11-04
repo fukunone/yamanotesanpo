@@ -12,6 +12,7 @@
     rowGap: [24, 9],     // 障害物の間隔（序盤→終盤）
     doubleChance: [0, 0.65], // 2つ並ぶ確率
     itemChance: [0.75, 0.42],
+    late: { from: 18, item: 0.6, drain: 1.12, double: 0.1, gap: 0.92 }, // 池袋(18駅目)から先を厳しくする
     items: { onigiri: { heal: 20, w: 20 }, water: { heal: 12, w: 35 }, snack: { heal: 7, w: 45 } },
     obstacles: { garbage: { dmg: 10 }, rotten: { dmg: 18 }, thug: { dmg: 25 } },
   };
@@ -165,7 +166,13 @@
   }
 
   // ---------- 生成 ----------
-  function rowGapAt(p) { return lerp(CFG.rowGap[0], CFG.rowGap[1], Math.pow(p, 0.8)); }
+  // 終盤のきびしさ（池袋の少し手前から少しずつ効き始め、池袋の先で最大になる）
+  function lateAt(p) {
+    const p0 = segStart[CFG.late.from] / L;
+    const t = clamp((p - (p0 - 0.02)) / 0.08, 0, 1);
+    return t * t * (3 - 2 * t);
+  }
+  function rowGapAt(p) { return lerp(CFG.rowGap[0], CFG.rowGap[1], Math.pow(p, 0.8)) * lerp(1, CFG.late.gap, lateAt(p)); }
   function nearStation(z, r) { const zz = wrapZ(z); for (let i = 0; i <= N; i++) { const s = i < N ? segStart[i] : L; if (Math.abs(zz - s) < r) return true; } return false; }
   function pickWeighted(table) { let tot = 0; for (const k in table) tot += table[k]; let r = Math.random() * tot; for (const k in table) { r -= table[k]; if (r <= 0) return k; } return Object.keys(table)[0]; }
 
@@ -177,14 +184,14 @@
       if (nearStation(z, 5)) { G.nextRow += 5; continue; }
       const lanes = [-1, 0, 1].sort(() => Math.random() - 0.5);
       let n = 1;
-      if (p > 0.06 && Math.random() < lerp(CFG.doubleChance[0], CFG.doubleChance[1], p)) n = 2;
+      if (p > 0.06 && Math.random() < lerp(CFG.doubleChance[0], CFG.doubleChance[1], p) + CFG.late.double * lateAt(p)) n = 2;
       if (p < 0.05 && Math.random() < 0.3) n = 0;
       for (let k = 0; k < n; k++) {
         const w = { garbage: 1, rotten: p > 0.08 ? lerp(0.3, 0.8, p) : 0, thug: (n === 1 && p > 0.22) ? lerp(0.2, 0.5, p) : 0 };
         const kind = pickWeighted(w);
         G.objs.push({ kind, x: lanes[k] * LANE, z, done: false, bad: true, vx: 0 });
       }
-      if (Math.random() < lerp(CFG.itemChance[0], CFG.itemChance[1], p)) {
+      if (Math.random() < lerp(CFG.itemChance[0], CFG.itemChance[1], p) * lerp(1, CFG.late.item, lateAt(p))) {
         const kind = pickWeighted({ onigiri: CFG.items.onigiri.w, water: CFG.items.water.w, snack: CFG.items.snack.w });
         const half = Math.random() < 0.5;
         const lane = half ? pick([-1, 0, 1]) : lanes[n];
@@ -333,7 +340,7 @@
       G.spd += ((G.brisk ? CFG.brisk.mul : 1) - G.spd) * Math.min(1, dt * 3);
       const sm = (G.stagger > 0 ? 1 - 0.85 * Math.min(1, G.stagger / 1.2) : 1) * G.spd;
       G.dist += CFG.speed * sm * dt;
-      G.hp -= lerp(CFG.drain[0], CFG.drain[1], p) * dt;
+      G.hp -= lerp(CFG.drain[0], CFG.drain[1], p) * lerp(1, CFG.late.drain, lateAt(p)) * dt;
       // 足音・心音
       G.stepT -= dt * sm; if (G.stepT <= 0) { G.stepT = 0.42; Sound.step(); }
       if (G.hp < 25) { G.beatT -= dt; if (G.beatT <= 0) { G.beatT = 0.9; Sound.beat(); } }
