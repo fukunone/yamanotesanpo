@@ -12,7 +12,7 @@ dist = root / 'dist'; dist.mkdir(exist_ok=True)
 (dist / 'yamanote-sanpo.html').write_text(out, encoding='utf-8')
 head = re.search(r'<head>(.*?)</head>', out, re.S).group(1)
 body = re.search(r'<body>(.*?)</body>', out, re.S).group(1)
-keep = '\n'.join(l for l in head.splitlines() if l.startswith(('<title', '<link', '<style')) or not l.startswith('<'))
+keep = re.sub(r'<meta[^>]*>\n?', '', head)  # meta だけ外す（共有ページ側が用意するため）
 art = keep + '\n' + body
 (dist / 'artifact.html').write_text(art, encoding='utf-8')
 print('built', len(out), len(art))

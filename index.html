@@ -78,6 +78,13 @@
     </section>
   </div>
 </div>
+<script>
+window.addEventListener('error', function (e) {
+  var d = document.getElementById('bootErr');
+  if (!d) { d = document.createElement('div'); d.id = 'bootErr'; (document.getElementById('stage') || document.body).appendChild(d); }
+  d.textContent = 'エラーが起きました。この画面を撮って送ってください:\n' + (e.message || e) + ' (' + (e.lineno || '') + ')';
+});
+</script>
 <script src="js/data.js"></script>
 <script src="js/records.js"></script>
 <script src="js/sound.js"></script>

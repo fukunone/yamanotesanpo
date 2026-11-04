@@ -35,8 +35,8 @@ body {
   overflow: hidden; overscroll-behavior: none;
   -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent;
 }
-#app { position: fixed; inset: 0; display: flex; justify-content: center; background: var(--night); }
-#stage { position: relative; height: 100%; width: min(100vw, 62vh); overflow: hidden; touch-action: none; background: #87c6ea; }
+#app { position: fixed; top: 0; left: 0; right: 0; bottom: 0; width: 100%; height: 100%; display: flex; justify-content: center; background: var(--night); }
+#stage { position: relative; height: 100%; width: 100%; max-width: 100%; min-width: 0; overflow: hidden; touch-action: none; background: #87c6ea; }
 #game { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 
 button { font-family: var(--font-body); cursor: pointer; touch-action: manipulation; }
@@ -130,6 +130,8 @@ button:focus-visible { outline: 3px solid var(--pack); outline-offset: 2px; }
 .res-note { margin-top: 10px; font-size: 11px; color: var(--muted); }
 @media (prefers-reduced-motion: reduce) { #banner.show { animation-duration: 2.6s; } .res-new { animation: none; } }
 
+#bootErr { position: absolute; left: 12px; right: 12px; bottom: 24px; z-index: 50; background: #fff; color: #b00020; font: 12px/1.5 monospace; padding: 10px; border-radius: 8px; white-space: pre-wrap; word-break: break-all; }
+
 </style>
 </head>
 <body>
@@ -196,6 +198,13 @@ button:focus-visible { outline: 3px solid var(--pack); outline-offset: 2px; }
     </section>
   </div>
 </div>
+<script>
+window.addEventListener('error', function (e) {
+  var d = document.getElementById('bootErr');
+  if (!d) { d = document.createElement('div'); d.id = 'bootErr'; (document.getElementById('stage') || document.body).appendChild(d); }
+  d.textContent = 'エラーが起きました。この画面を撮って送ってください:\n' + (e.message || e) + ' (' + (e.lineno || '') + ')';
+});
+</script>
 <script>
 /* 山手線一周さんぽ — 駅と街のデータ
  * km は「次の駅までの距離（おおよそ）」。外回り（東京→有楽町→新橋…）の順。
@@ -464,8 +473,14 @@ const Sound = {
   const cv = document.getElementById('game');
   const ctx = cv.getContext('2d');
   let W = 0, H = 0, F = 0, HOR = 0, FEET = 0;
+  const app = document.getElementById('app');
   function resize() {
+    // 画面の大きさは実際の要素の大きさから計算する（埋め込み表示でも縦長に収める）
+    const aw = app.clientWidth || window.innerWidth || document.documentElement.clientWidth;
+    const ah = app.clientHeight || window.innerHeight || document.documentElement.clientHeight;
+    stage.style.width = (ah > 300 ? Math.min(aw, ah * 0.62) : aw) + 'px';
     const r = stage.getBoundingClientRect();
+    if (r.width < 10 || r.height < 10) return;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     W = r.width; H = r.height;
     cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
@@ -1242,7 +1257,8 @@ const Sound = {
   let last = 0;
   function frame(t) {
     const dt = Math.min(0.05, last ? (t - last) / 1000 : 0.016); last = t;
-    update(dt); render(dt);
+    if (!W || !H) resize();
+    if (W && H) { update(dt); render(dt); }
     requestAnimationFrame(frame);
   }
   function fillLegend() {
@@ -1252,6 +1268,8 @@ const Sound = {
     fillLegend();
     Sound.setOn(Storage.get('yamanote-sanpo.sound', true) !== false); syncSound();
     resize(); window.addEventListener('resize', resize);
+    if (window.ResizeObserver) new ResizeObserver(resize).observe(app);
+    window.addEventListener('orientationchange', () => setTimeout(resize, 300));
     toTitle();
     if (document.fonts && document.fonts.load) { document.fonts.load(`20px ${FONT}`).catch(() => {}); }
     requestAnimationFrame(frame);

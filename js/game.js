@@ -52,8 +52,14 @@
   const cv = document.getElementById('game');
   const ctx = cv.getContext('2d');
   let W = 0, H = 0, F = 0, HOR = 0, FEET = 0;
+  const app = document.getElementById('app');
   function resize() {
+    // 画面の大きさは実際の要素の大きさから計算する（埋め込み表示でも縦長に収める）
+    const aw = app.clientWidth || window.innerWidth || document.documentElement.clientWidth;
+    const ah = app.clientHeight || window.innerHeight || document.documentElement.clientHeight;
+    stage.style.width = (ah > 300 ? Math.min(aw, ah * 0.62) : aw) + 'px';
     const r = stage.getBoundingClientRect();
+    if (r.width < 10 || r.height < 10) return;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     W = r.width; H = r.height;
     cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
@@ -830,7 +836,8 @@
   let last = 0;
   function frame(t) {
     const dt = Math.min(0.05, last ? (t - last) / 1000 : 0.016); last = t;
-    update(dt); render(dt);
+    if (!W || !H) resize();
+    if (W && H) { update(dt); render(dt); }
     requestAnimationFrame(frame);
   }
   function fillLegend() {
@@ -840,6 +847,8 @@
     fillLegend();
     Sound.setOn(Storage.get('yamanote-sanpo.sound', true) !== false); syncSound();
     resize(); window.addEventListener('resize', resize);
+    if (window.ResizeObserver) new ResizeObserver(resize).observe(app);
+    window.addEventListener('orientationchange', () => setTimeout(resize, 300));
     toTitle();
     if (document.fonts && document.fonts.load) { document.fonts.load(`20px ${FONT}`).catch(() => {}); }
     requestAnimationFrame(frame);
