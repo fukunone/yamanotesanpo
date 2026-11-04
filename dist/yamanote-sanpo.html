@@ -55,7 +55,11 @@ button:focus-visible { outline: 3px solid var(--pack); outline-offset: 2px; }
 .hud-mid { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
 .hp { background: rgba(20, 26, 46, .72); border-radius: 12px; padding: 6px 10px 8px; color: #fff; }
 .hp-label { font-size: 11px; letter-spacing: .12em; font-weight: 700; opacity: .9; }
-.hp-bar { margin-top: 3px; height: 12px; border-radius: 6px; background: rgba(255, 255, 255, .18); overflow: hidden; }
+.hp-bar { margin-top: 3px; height: 12px; border-radius: 6px; background: rgba(255, 255, 255, .18); overflow: hidden; position: relative; }
+.hp-head { display: flex; justify-content: space-between; align-items: center; }
+.hp-brisk { font-size: 11px; font-weight: 800; color: #14210a; background: var(--line); border-radius: 999px; padding: 0 8px; opacity: 0; transition: opacity .2s; }
+.hp.brisk .hp-brisk { opacity: 1; }
+.hp-mark { position: absolute; left: 70%; top: 0; bottom: 0; width: 2px; background: rgba(255, 255, 255, .75); }
 .hp-bar i { display: block; height: 100%; width: 100%; transform-origin: left center; background: #7ccf4a; border-radius: 6px; transition: transform .15s linear; }
 .hp.low { animation: pulse .9s infinite; }
 @keyframes pulse { 50% { background: rgba(160, 30, 40, .8); } }
@@ -143,7 +147,7 @@ button:focus-visible { outline: 3px solid var(--pack); outline-offset: 2px; }
       <div class="hud-top">
         <button id="btnPause" class="hud-btn" aria-label="一時停止">II</button>
         <div class="hud-mid">
-          <div id="hpBox" class="hp"><span class="hp-label">たいりょく</span><div class="hp-bar"><i id="hpFill"></i></div></div>
+          <div id="hpBox" class="hp"><div class="hp-head"><span class="hp-label">たいりょく</span><span class="hp-brisk">早歩き中</span></div><div class="hp-bar"><i id="hpFill"></i><b class="hp-mark"></b></div></div>
           <div class="next"><span class="next-tag">つぎは</span><b id="nextName">有楽町</b><span id="nextDist"></span></div>
         </div>
         <div class="hud-right">
@@ -169,7 +173,7 @@ button:focus-visible { outline: 3px solid var(--pack); outline-offset: 2px; }
         <h2>あそびかた</h2>
         <ol class="howto">
           <li>画面の左右をタップ（またはスワイプ）でレーンを移動</li>
-          <li>体力は歩くだけで減る。食べ物と水で回復</li>
+          <li>体力は歩くだけで減る。食べ物と水で回復。体力70以上なら早歩きでタイムが縮む</li>
           <li>東京から外回りで30駅、一周したらゴール</li>
         </ol>
         <div class="legend">
@@ -426,12 +430,13 @@ const Sound = {
   // ---------- 調整用の数値 ----------
   const CFG = {
     speed: 14,            // 歩く速さ（ゲーム内の単位/秒）
-    targetSec: 575,       // ノーミスで一周したときの秒数（約9分35秒）
+    targetSec: 650,       // 普通の速さだけで一周したときの秒数（約10分50秒）
+    brisk: { hp: 70, mul: 1.15 }, // 体力70以上なら早歩き（1.15倍速）→ずっと保てば約9分25秒
     hpMax: 100,
-    drain: [1.2, 2.0],    // 体力の減り方（序盤→終盤 / 秒）
-    rowGap: [26, 10],     // 障害物の間隔（序盤→終盤）
-    doubleChance: [0, 0.55], // 2つ並ぶ確率
-    itemChance: [0.8, 0.5],
+    drain: [1.35, 2.4],    // 体力の減り方（序盤→終盤 / 秒）
+    rowGap: [24, 9],     // 障害物の間隔（序盤→終盤）
+    doubleChance: [0, 0.65], // 2つ並ぶ確率
+    itemChance: [0.75, 0.42],
     items: { onigiri: { heal: 20, w: 20 }, water: { heal: 12, w: 35 }, snack: { heal: 7, w: 45 } },
     obstacles: { garbage: { dmg: 10 }, rotten: { dmg: 18 }, thug: { dmg: 25 } },
   };
@@ -567,7 +572,7 @@ const Sound = {
   // ---------- ゲームの状態 ----------
   const G = {
     state: 'title', dist: 0, lane: 0, px: 0, hp: CFG.hpMax, elapsed: 0,
-    stagger: 0, invuln: 0, nextIdx: 1, ending: null, endT: 0, shake: 0, stepT: 0, beatT: 0,
+    stagger: 0, invuln: 0, spd: 1, brisk: false, nextIdx: 1, ending: null, endT: 0, shake: 0, stepT: 0, beatT: 0,
     objs: [], scen: [], gates: [], fx: [], nextRow: 0, nextScene: { '-1': 0, '1': 0 }, nextLamp: 0, time: 0,
     hits: 0, picks: 0,
   };
@@ -576,7 +581,7 @@ const Sound = {
   const progress = () => clamp(G.dist / L, 0, 1);
 
   function resetWorld(startDist) {
-    G.dist = startDist; G.lane = 0; G.px = 0; G.hp = CFG.hpMax; G.elapsed = 0; G.stagger = 0; G.invuln = 0;
+    G.dist = startDist; G.lane = 0; G.px = 0; G.hp = CFG.hpMax; G.elapsed = 0; G.stagger = 0; G.invuln = 0; G.spd = 1; G.brisk = false;
     G.nextIdx = 1; G.ending = null; G.endT = 0; G.shake = 0; G.hits = 0; G.picks = 0;
     G.objs = []; G.scen = []; G.gates = []; G.fx = [];
     G.nextRow = startDist + 60; G.nextScene = { '-1': startDist - 8, '1': startDist - 8 }; G.nextLamp = Math.floor(startDist / 14) * 14;
@@ -720,7 +725,7 @@ const Sound = {
     if (o.bad) {
       if (G.invuln > 0) return;
       const d = CFG.obstacles[o.kind].dmg;
-      G.hp -= d; G.hits++; G.stagger = 1.4; G.invuln = 1.0; G.shake = 0.3;
+      G.hp -= d; G.hits++; G.stagger = 2.0; G.invuln = 1.0; G.shake = 0.3;
       Sound.hit(o.kind); addFloat(`-${d}`, '#ff5a5a');
       HUD.flash.classList.remove('on'); void HUD.flash.offsetWidth; HUD.flash.classList.add('on');
       if (navigator.vibrate) try { navigator.vibrate(60); } catch (e) {}
@@ -749,7 +754,9 @@ const Sound = {
       G.elapsed += dt;
       if (G.stagger > 0) G.stagger -= dt;
       if (G.invuln > 0) G.invuln -= dt;
-      const sm = G.stagger > 0 ? 1 - 0.8 * Math.min(1, G.stagger / 0.9) : 1;
+      G.brisk = G.hp >= CFG.brisk.hp;
+      G.spd += ((G.brisk ? CFG.brisk.mul : 1) - G.spd) * Math.min(1, dt * 3);
+      const sm = (G.stagger > 0 ? 1 - 0.85 * Math.min(1, G.stagger / 1.2) : 1) * G.spd;
       G.dist += CFG.speed * sm * dt;
       G.hp -= lerp(CFG.drain[0], CFG.drain[1], p) * dt;
       // 足音・心音
@@ -1126,6 +1133,7 @@ const Sound = {
     HUD.hp.style.transform = `scaleX(${hp})`;
     HUD.hp.style.background = hp > 0.5 ? '#7ccf4a' : hp > 0.25 ? '#f2c335' : '#ef4b4b';
     HUD.hpBox.classList.toggle('low', hp < 0.25);
+    HUD.hpBox.classList.toggle('brisk', G.brisk && !G.ending);
     const ni = Math.min(G.nextIdx, N);
     const nz = G.nextIdx < N ? segStart[G.nextIdx] : L;
     setText(HUD.next, G.nextIdx < N ? STATIONS[ni].name : '東京（ゴール）');

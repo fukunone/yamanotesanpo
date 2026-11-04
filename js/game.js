@@ -5,12 +5,13 @@
   // ---------- 調整用の数値 ----------
   const CFG = {
     speed: 14,            // 歩く速さ（ゲーム内の単位/秒）
-    targetSec: 575,       // ノーミスで一周したときの秒数（約9分35秒）
+    targetSec: 650,       // 普通の速さだけで一周したときの秒数（約10分50秒）
+    brisk: { hp: 70, mul: 1.15 }, // 体力70以上なら早歩き（1.15倍速）→ずっと保てば約9分25秒
     hpMax: 100,
-    drain: [1.2, 2.0],    // 体力の減り方（序盤→終盤 / 秒）
-    rowGap: [26, 10],     // 障害物の間隔（序盤→終盤）
-    doubleChance: [0, 0.55], // 2つ並ぶ確率
-    itemChance: [0.8, 0.5],
+    drain: [1.35, 2.4],    // 体力の減り方（序盤→終盤 / 秒）
+    rowGap: [24, 9],     // 障害物の間隔（序盤→終盤）
+    doubleChance: [0, 0.65], // 2つ並ぶ確率
+    itemChance: [0.75, 0.42],
     items: { onigiri: { heal: 20, w: 20 }, water: { heal: 12, w: 35 }, snack: { heal: 7, w: 45 } },
     obstacles: { garbage: { dmg: 10 }, rotten: { dmg: 18 }, thug: { dmg: 25 } },
   };
@@ -146,7 +147,7 @@
   // ---------- ゲームの状態 ----------
   const G = {
     state: 'title', dist: 0, lane: 0, px: 0, hp: CFG.hpMax, elapsed: 0,
-    stagger: 0, invuln: 0, nextIdx: 1, ending: null, endT: 0, shake: 0, stepT: 0, beatT: 0,
+    stagger: 0, invuln: 0, spd: 1, brisk: false, nextIdx: 1, ending: null, endT: 0, shake: 0, stepT: 0, beatT: 0,
     objs: [], scen: [], gates: [], fx: [], nextRow: 0, nextScene: { '-1': 0, '1': 0 }, nextLamp: 0, time: 0,
     hits: 0, picks: 0,
   };
@@ -155,7 +156,7 @@
   const progress = () => clamp(G.dist / L, 0, 1);
 
   function resetWorld(startDist) {
-    G.dist = startDist; G.lane = 0; G.px = 0; G.hp = CFG.hpMax; G.elapsed = 0; G.stagger = 0; G.invuln = 0;
+    G.dist = startDist; G.lane = 0; G.px = 0; G.hp = CFG.hpMax; G.elapsed = 0; G.stagger = 0; G.invuln = 0; G.spd = 1; G.brisk = false;
     G.nextIdx = 1; G.ending = null; G.endT = 0; G.shake = 0; G.hits = 0; G.picks = 0;
     G.objs = []; G.scen = []; G.gates = []; G.fx = [];
     G.nextRow = startDist + 60; G.nextScene = { '-1': startDist - 8, '1': startDist - 8 }; G.nextLamp = Math.floor(startDist / 14) * 14;
@@ -299,7 +300,7 @@
     if (o.bad) {
       if (G.invuln > 0) return;
       const d = CFG.obstacles[o.kind].dmg;
-      G.hp -= d; G.hits++; G.stagger = 1.4; G.invuln = 1.0; G.shake = 0.3;
+      G.hp -= d; G.hits++; G.stagger = 2.0; G.invuln = 1.0; G.shake = 0.3;
       Sound.hit(o.kind); addFloat(`-${d}`, '#ff5a5a');
       HUD.flash.classList.remove('on'); void HUD.flash.offsetWidth; HUD.flash.classList.add('on');
       if (navigator.vibrate) try { navigator.vibrate(60); } catch (e) {}
@@ -328,7 +329,9 @@
       G.elapsed += dt;
       if (G.stagger > 0) G.stagger -= dt;
       if (G.invuln > 0) G.invuln -= dt;
-      const sm = G.stagger > 0 ? 1 - 0.8 * Math.min(1, G.stagger / 0.9) : 1;
+      G.brisk = G.hp >= CFG.brisk.hp;
+      G.spd += ((G.brisk ? CFG.brisk.mul : 1) - G.spd) * Math.min(1, dt * 3);
+      const sm = (G.stagger > 0 ? 1 - 0.85 * Math.min(1, G.stagger / 1.2) : 1) * G.spd;
       G.dist += CFG.speed * sm * dt;
       G.hp -= lerp(CFG.drain[0], CFG.drain[1], p) * dt;
       // 足音・心音
@@ -705,6 +708,7 @@
     HUD.hp.style.transform = `scaleX(${hp})`;
     HUD.hp.style.background = hp > 0.5 ? '#7ccf4a' : hp > 0.25 ? '#f2c335' : '#ef4b4b';
     HUD.hpBox.classList.toggle('low', hp < 0.25);
+    HUD.hpBox.classList.toggle('brisk', G.brisk && !G.ending);
     const ni = Math.min(G.nextIdx, N);
     const nz = G.nextIdx < N ? segStart[G.nextIdx] : L;
     setText(HUD.next, G.nextIdx < N ? STATIONS[ni].name : '東京（ゴール）');
