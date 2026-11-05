@@ -225,7 +225,7 @@
   });
   const ITEM_H = { onigiri: 0.95, water: 1.1, snack: 1.15, garbage: 1.0, rotten: 0.95, thug: 1.85,
     drunk: 1.8, gull: 0.75, robot: 0.95, bike: 1.9, cat: 0.6, cart: 1.05, flyer: 1.8, walker0: 1.75, walker1: 1.75, walker2: 1.75 };
-  const SPEECH = { thug: ['おい！', '#c0283a'], drunk: ['ヒック', '#b0512a'], flyer: ['どうぞ〜', '#c06a00'], bike: ['チリン', '#2b6fb0'], robot: ['とおります', '#2b6fb0'] };
+  const SPEECH = { gull: ['ギャア', '#2b6fb0'], thug: ['おい！', '#c0283a'], drunk: ['ヒック', '#b0512a'], flyer: ['どうぞ〜', '#c06a00'], bike: ['チリン', '#2b6fb0'], robot: ['とおります', '#2b6fb0'] };
 
   // ---------- ゲームの状態 ----------
   const G = {
@@ -270,7 +270,7 @@
     if (kind === 'thug') { o.mv = 'chase'; o.sp = 2.0; o.trig = 32; }
     else if (kind === 'flyer') { o.mv = 'chase'; o.sp = 3.2; o.trig = 20; }
     else if (kind === 'drunk') { o.mv = 'sway'; o.bx = o.x; o.ph = rand(0, 6); }
-    else if (kind === 'gull') { o.mv = 'cross'; o.x = side * 4.8; o.vx = -side * rand(4.8, 6); o.trig = 25; o.fly = true; }
+    else if (kind === 'gull') { o.mv = 'cross'; o.x = side * 5.2; o.vx = 0; o.trig = 24; o.fly = true; o.aim = true; } // 近づいたときのレーンを狙って飛ぶ
     else if (kind === 'robot') { o.mv = 'cross'; o.x = side * 3.3; o.vx = -side * 1.5; o.trig = 42; }
     else if (kind === 'cart') { o.mv = 'cross'; o.x = side * 3.1; o.vx = -side * 1.15; o.trig = 38; }
     else if (kind === 'cat') { o.mv = 'cross'; o.x = side * 4.2; o.vx = -side * rand(6.5, 8); o.trig = 15; }
@@ -507,7 +507,15 @@
         if (o.done) continue;
         const rz = o.z - G.dist;
         if (o.mv === 'chase') { if (rz < o.trig && rz > 1) o.x += clamp(G.lane * LANE - o.x, -o.sp * dt, o.sp * dt); }
-        else if (o.mv === 'cross') { if (rz < o.trig) o.x += o.vx * dt; }
+        else if (o.mv === 'cross') {
+          if (rz < o.trig) {
+            if (o.aim && !o.aimed) { // 着く時にちょうど今のレーンを通るよう速さを決める（よけるには来た側へ動く）
+              o.aimed = true; const t = Math.max(0.5, rz / CFG.speed);
+              o.vx = (G.lane * LANE - o.x) / t; Sound.gull();
+            }
+            o.x += o.vx * dt;
+          }
+        }
         else if (o.mv === 'sway') { o.x = clamp(o.bx + Math.sin(G.time * 1.7 + o.ph) * 1.9, -LANE - 0.2, LANE + 0.2); }
         else if (o.mv === 'oncoming') { if (rz < 60) { o.z -= o.vz * dt; if (!o.rang && rz < 45) { o.rang = true; Sound.bell(); } } }
         if (o.bad && !G.seen[o.kind] && rz < 55 && Math.abs(o.x) < 5) {
