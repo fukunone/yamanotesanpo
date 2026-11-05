@@ -55,6 +55,7 @@ const Sound = {
   clear() { [523, 659, 784, 1047, 784, 1047, 1319].forEach((f, i) => this.tone(f, 0.3, 'triangle', 0.22, i * 0.12)); },
   stamp() { this.noise(0.06, 0.4, 0, 300); this.tone(1568, 0.25, 'sine', 0.15, 0.08); this.tone(2093, 0.3, 'sine', 0.12, 0.16); },
   gull() { this.tone(1400, 0.18, 'sawtooth', 0.06, 0, 900); this.tone(1300, 0.2, 'sawtooth', 0.05, 0.2, 850); },
+  cat() { this.tone(900, 0.22, 'triangle', 0.12, 0, 1300); },
   bell() { this.tone(2600, 0.18, 'sine', 0.12); this.tone(2600, 0.2, 'sine', 0.1, 0.16); },
   wind() { this.noise(0.7, 0.35, 0, 900); },
   train() { this.noise(1.6, 0.18, 0, 180); },

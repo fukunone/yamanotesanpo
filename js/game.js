@@ -225,7 +225,7 @@
   });
   const ITEM_H = { onigiri: 0.95, water: 1.1, snack: 1.15, garbage: 1.0, rotten: 0.95, thug: 1.85,
     drunk: 1.8, gull: 0.75, robot: 0.95, bike: 1.9, cat: 0.6, cart: 1.05, flyer: 1.8, walker0: 1.75, walker1: 1.75, walker2: 1.75 };
-  const SPEECH = { gull: ['ギャア', '#2b6fb0'], thug: ['おい！', '#c0283a'], drunk: ['ヒック', '#b0512a'], flyer: ['どうぞ〜', '#c06a00'], bike: ['チリン', '#2b6fb0'], robot: ['とおります', '#2b6fb0'] };
+  const SPEECH = { gull: ['ギャア', '#2b6fb0'], cat: ['ニャッ', '#c06a10'], thug: ['おい！', '#c0283a'], drunk: ['ヒック', '#b0512a'], flyer: ['どうぞ〜', '#c06a00'], bike: ['チリン', '#2b6fb0'], robot: ['とおります', '#2b6fb0'] };
 
   // ---------- ゲームの状態 ----------
   const G = {
@@ -273,7 +273,7 @@
     else if (kind === 'gull') { o.mv = 'cross'; o.x = side * 5.2; o.vx = 0; o.trig = 24; o.fly = true; o.aim = true; } // 近づいたときのレーンを狙って飛ぶ
     else if (kind === 'robot') { o.mv = 'cross'; o.x = side * 3.3; o.vx = -side * 1.5; o.trig = 42; }
     else if (kind === 'cart') { o.mv = 'cross'; o.x = side * 3.1; o.vx = -side * 1.15; o.trig = 38; }
-    else if (kind === 'cat') { o.mv = 'cross'; o.x = side * 4.2; o.vx = -side * rand(6.5, 8); o.trig = 15; }
+    else if (kind === 'cat') { o.mv = 'cross'; o.x = side * 4.4; o.vx = 0; o.trig = 18; o.aim = true; o.cry = 'cat'; } // 急に飛び出して今のレーンを狙う
     else if (kind === 'bike') { o.mv = 'oncoming'; o.vz = 8; }
     else if (kind === 'walker') { o.v = (Math.random() * 3) | 0; }
     return o;
@@ -511,7 +511,7 @@
           if (rz < o.trig) {
             if (o.aim && !o.aimed) { // 着く時にちょうど今のレーンを通るよう速さを決める（よけるには来た側へ動く）
               o.aimed = true; const t = Math.max(0.5, rz / CFG.speed);
-              o.vx = (G.lane * LANE - o.x) / t; Sound.gull();
+              o.vx = (G.lane * LANE - o.x) / t; if (o.cry === 'cat') Sound.cat(); else Sound.gull();
             }
             o.x += o.vx * dt;
           }
