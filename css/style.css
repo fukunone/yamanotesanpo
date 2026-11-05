@@ -81,7 +81,7 @@ button:focus-visible { outline: 3px solid var(--pack); outline-offset: 2px; }
 
 /* ---- タイトル・一時停止・結果 ---- */
 .screen {
-  position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; gap: 14px;
+  position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: flex-start; gap: 10px;
   padding: calc(env(safe-area-inset-top, 0px) + 16px) 18px calc(env(safe-area-inset-bottom, 0px) + 18px);
   background: linear-gradient(180deg, rgba(20, 26, 46, .15) 0%, rgba(20, 26, 46, .55) 55%, rgba(20, 26, 46, .85) 100%);
   overflow-y: auto;
@@ -120,3 +120,41 @@ button:focus-visible { outline: 3px solid var(--pack); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { #banner.show { animation-duration: 2.6s; } .res-new { animation: none; } }
 
 #bootErr { position: absolute; left: 12px; right: 12px; bottom: 24px; z-index: 50; background: #fff; color: #b00020; font: 12px/1.5 monospace; padding: 10px; border-radius: 8px; white-space: pre-wrap; word-break: break-all; }
+
+/* ---- 駅スタンプ ---- */
+.stamp {
+  --ink: #c8332f; display: inline-flex; align-items: center; justify-content: center; text-align: center;
+  width: 2.9em; height: 2.9em; border-radius: 50%; border: 3px double var(--ink); color: var(--ink);
+  font-family: var(--font-disp); font-size: 14px; line-height: 1.05; transform: rotate(-8deg); padding: 2px; word-break: break-all;
+  background: rgba(255, 255, 255, .6);
+}
+.stamp-mark { flex: none; font-family: var(--font-disp); font-size: 11px; color: #fff; background: #c8332f; border-radius: 50%; width: 20px; height: 20px; display: inline-flex; align-items: center; justify-content: center; transition: background .2s; }
+.stamp-mark.lost { background: #b9bcc4; }
+.sign-note { margin-top: 4px; text-align: center; color: #ffe9a8; font-weight: 800; font-size: 13px; text-shadow: 0 1px 3px rgba(0, 0, 0, .85); }
+.stamp-get { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 8px; }
+.stamp-get .stamp { font-size: 13px; width: 3.6em; height: 3.6em; animation: stampin .5s ease-out .3s both; }
+.stamp-get b { color: #fff; font-size: 15px; text-shadow: 0 1px 3px rgba(0, 0, 0, .85); }
+@keyframes stampin { 0% { transform: scale(2.2) rotate(-20deg); opacity: 0; } 70% { transform: scale(.92) rotate(-8deg); opacity: 1; } 100% { transform: scale(1) rotate(-8deg); } }
+#toast {
+  position: absolute; left: 50%; top: 58%; transform: translate(-50%, 0); pointer-events: none; opacity: 0;
+  background: rgba(20, 26, 46, .85); color: #fff; border-radius: 12px; padding: 8px 14px; text-align: center; min-width: 60%;
+  display: flex; flex-direction: column; gap: 1px; font-weight: 800;
+}
+#toast b { font-size: 11px; color: var(--line); letter-spacing: .1em; }
+#toast small { font-size: 12px; opacity: .85; }
+#toast.show { animation: toast 2.6s ease-out forwards; }
+@keyframes toast { 0% { opacity: 0; transform: translate(-50%, 10px); } 10%, 85% { opacity: 1; transform: translate(-50%, 0); } 100% { opacity: 0; } }
+.legend-note { margin: 6px 0 0; font-size: 11px; color: var(--muted); text-align: center; }
+.stamp-book h2 { display: flex; justify-content: space-between; }
+.stamp-help { margin: 0 0 10px; font-size: 12px; color: var(--muted); line-height: 1.5; }
+.stamp-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px 4px; }
+.stamp-cell { display: flex; justify-content: center; }
+.stamp-cell .stamp { width: 52px; height: 52px; }
+.stamp-cell:not(.got) .stamp { border-style: dashed; border-width: 2px; transform: none; opacity: .7; }
+.res-stamps { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin: 10px 0 4px; }
+.res-stamps .stamp { font-size: 11px; width: 3.4em; height: 3.4em; }
+.res-stamps .stamp.new { box-shadow: 0 0 0 3px #ffd23f; }
+
+.screen > :first-child { margin-top: auto; }
+.screen > :last-child { margin-bottom: auto; }
+.screen > * { flex-shrink: 0; }

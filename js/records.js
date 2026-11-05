@@ -13,10 +13,11 @@ const Storage = {
 };
 
 const Records = {
-  KEY: 'yamanote-sanpo.records.v1',
-  empty() { return { bestStations: 0, bestStationName: '', bestKm: 0, bestTimeMs: null, plays: 0, clears: 0 }; },
+  KEY: 'yamanote-sanpo.records.v2', // v2：一周が目標のルール（v1 の記録は使わない）
+  empty() { return { bestStations: 0, bestStationName: '', bestKm: 0, bestTimeMs: null, plays: 0, clears: 0, stamps: [] }; },
   load() { return Object.assign(this.empty(), Storage.get(this.KEY, {})); },
-  /* run = { cleared, stations, stationName, km, timeMs, date } */
+  /* run = { cleared, stations, stationName, km, timeMs, stamps, date }
+     一周タイムは競う対象ではなく、ゴールしたときの記録として残す */
   submit(run) {
     const r = this.load();
     const res = { newDistance: false, newTime: false, prev: Object.assign({}, r) };
@@ -26,6 +27,9 @@ const Records = {
       r.bestKm = run.km; r.bestStations = run.stations; r.bestStationName = run.stationName; res.newDistance = true;
     }
     if (run.cleared && (r.bestTimeMs == null || run.timeMs < r.bestTimeMs)) { r.bestTimeMs = run.timeMs; res.newTime = true; }
+    if (!Array.isArray(r.stamps)) r.stamps = [];
+    res.newStamps = (run.stamps || []).filter(i => !r.stamps.includes(i));
+    r.stamps = r.stamps.concat(res.newStamps).sort((a, b) => a - b);
     Storage.set(this.KEY, r);
     res.records = r;
     Leaderboard.submit(run);
