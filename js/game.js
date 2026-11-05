@@ -7,11 +7,12 @@
     speed: 14,            // 歩く速さ（ゲーム内の単位/秒）。ずっと一定
     targetSec: 600,       // ノーミスで一周したときの秒数（約10分）
     hpMax: 100,
-    drain: [1.7, 2.9],    // 体力の減り方（序盤→終盤 / 秒）
-    rowGap: [22, 8.5],    // 障害物の間隔（序盤→終盤）
-    doubleChance: [0, 0.7], // 2つ並ぶ確率
-    itemChance: [0.64, 0.35],
-    late: { from: 18, item: 0.6, drain: 1.12, double: 0.1, gap: 0.92 }, // 池袋(18駅目)から先を厳しくする
+    drain: [2.15, 3.1],    // 体力の減り方（序盤→終盤 / 秒）。序盤から旧版の「池袋より先」と同じ厳しさ
+    rowGap: [14, 8],    // 障害物の間隔（序盤→終盤）
+    doubleChance: [0.45, 0.75], // 2つ並ぶ確率
+    itemChance: [0.40, 0.25],
+    warmup: 0.07,         // 東京〜新橋あたりまでは少しやさしく（慣らし）
+    late: { from: 18, item: 0.85, drain: 1.08, double: 0.08, gap: 0.9 }, // 池袋(18駅目)から先はさらに厳しく
     items: { onigiri: { heal: 20, w: 20 }, water: { heal: 12, w: 35 }, snack: { heal: 7, w: 45 } },
     obstacles: { garbage: { dmg: 12 }, rotten: { dmg: 20 }, thug: { dmg: 28 }, drunk: { dmg: 16 }, gull: { dmg: 14 }, robot: { dmg: 16 },
       bike: { dmg: 22 }, walker: { dmg: 12 }, cart: { dmg: 14 }, cat: { dmg: 10 }, flyer: { dmg: 12 } },
@@ -254,6 +255,7 @@
     const t = clamp((p - (p0 - 0.02)) / 0.08, 0, 1);
     return t * t * (3 - 2 * t);
   }
+  function warmAt(p) { return clamp(p / CFG.warmup, 0, 1); }
   function rowGapAt(p) { return lerp(CFG.rowGap[0], CFG.rowGap[1], Math.pow(p, 0.8)) * lerp(1, CFG.late.gap, lateAt(p)); }
   function nearStation(z, r) { const zz = wrapZ(z); for (let i = 0; i <= N; i++) { const s = i < N ? segStart[i] : L; if (Math.abs(zz - s) < r) return true; } return false; }
   function pickWeighted(table) { let tot = 0; for (const k in table) tot += table[k]; let r = Math.random() * tot; for (const k in table) { r -= table[k]; if (r <= 0) return k; } return Object.keys(table)[0]; }
@@ -288,7 +290,7 @@
       const inQueue = G.qLane != null && z < G.qUntil;
       if (inQueue) lanes = lanes.filter(l => l !== G.qLane).concat([G.qLane]);
       let n = 1;
-      if (p > 0.04 && Math.random() < lerp(CFG.doubleChance[0], CFG.doubleChance[1], p) + CFG.late.double * lateAt(p) + (ev.dbl || 0)) n = 2;
+      if (p > 0.015 && Math.random() < lerp(CFG.doubleChance[0], CFG.doubleChance[1], p) + CFG.late.double * lateAt(p) + (ev.dbl || 0)) n = 2;
       if (p < 0.03 && Math.random() < 0.3) n = 0;
       if (ev.rest) n = Math.random() < 0.25 ? 1 : 0;
       if (inQueue) n = Math.min(n, 1);
@@ -311,7 +313,7 @@
           G.objs.push(makeObj(pickWeighted(w), lanes[k], z));
         }
       }
-      const ic = lerp(CFG.itemChance[0], CFG.itemChance[1], p) * lerp(1, CFG.late.item, lateAt(p)) * (ev.item || 1) * (ev.rest ? 2 : 1);
+      const ic = lerp(CFG.itemChance[0], CFG.itemChance[1], p) * lerp(1, CFG.late.item, lateAt(p)) * lerp(1.5, 1, warmAt(p)) * (ev.item || 1) * (ev.rest ? 2 : 1);
       if (Math.random() < ic) {
         const kind = pickWeighted({ onigiri: CFG.items.onigiri.w, water: CFG.items.water.w, snack: CFG.items.snack.w });
         const half = Math.random() < 0.5 || special;
@@ -488,7 +490,7 @@
       if (G.invuln > 0) G.invuln -= dt;
       const sm = G.stagger > 0 ? 1 - 0.85 * Math.min(1, G.stagger / 1.2) : 1;
       G.dist += CFG.speed * sm * dt;
-      G.hp -= lerp(CFG.drain[0], CFG.drain[1], p) * lerp(1, CFG.late.drain, lateAt(p)) * dt;
+      G.hp -= lerp(CFG.drain[0], CFG.drain[1], p) * lerp(1, CFG.late.drain, lateAt(p)) * lerp(0.7, 1, warmAt(p)) * dt;
       // 足音・心音
       G.stepT -= dt * sm; if (G.stepT <= 0) { G.stepT = 0.42; Sound.step(); }
       if (G.hp < 25) { G.beatT -= dt; if (G.beatT <= 0) { G.beatT = 0.9; Sound.beat(); } }
